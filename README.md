@@ -11,6 +11,8 @@ Script that loads basic data, calculates Chlorophyl density and AFDM at each enc
 Script that creates a raster that shows an approximation of the relative position of each enclosure. 
 Obvious AFDM spatial autocorrelation
 TODO: bring in basalres to map these variables as well
+FIND MISSING Exposure/Biomass Data (missing 10 enclosures)
+Get Biomass regressions from Garrett
 
 #ndsanalysis
 Based on code by Dr. Thomas Parr, used to analyze the nutrient diffusing substrata placed within the river during our experiment.
@@ -21,3 +23,11 @@ Takes raw data and produces counts, sizes, and biomass densities. Need to use de
 #InvFunction
 preliminary script to do functional anlaysis for the invertebrates 
 Traci is working on this
+
+####Ultimate To Do
+fix exposure/biomass stuff
+fix NAs in ChlA and AFDM data sheets
+bring basal resources into spatialanalysis
+create a regression table - chlA, AFDM, MusselBiomass, Exposure, Depth, Velocity, InvBMDensity, FishProb
+make a script for modelling EEP
+

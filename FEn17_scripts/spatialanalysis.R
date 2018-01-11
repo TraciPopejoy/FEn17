@@ -39,3 +39,13 @@ Treat$TreatN<-as.numeric(Treat$TreatA)
 EnclosureRaster$TreatN<-Treat[match(EnclosureRaster$enc, Treat$ï..Enclosure),5]
 image(EnclosureRaster["TreatN"])
 text(cc[,1],cc[,2],zc)
+
+#### Structure data ####
+MusselData<-read.csv("./FEn17_data/MusselBMExpFEn17OK.csv")
+colnames(MusselData)[1]<-"Enclosure"
+MusselData$Enc2<-Treat[match(MusselData$Enclosure,Treat$ï..Enclosure),2]
+expos<-ddply(MusselData, .variables =c("Enclosure"), .fun=function(x) mean(na.omit(x$Exposure)))
+EncDV$Avg.Exposure<-expos[match(EncDV$ï..Enclosure, expos$Enclosure),2]
+EnclosureRaster$exposure<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),4]
+image(EnclosureRaster["exposure"])
+text(cc[,1],cc[,2],zc)
