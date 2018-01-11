@@ -1,0 +1,51 @@
+﻿Enclosure,Enclosure2,TreatA,TreatF
+A1,A01,AMBL,"Amblema plicata dominated, live"
+A2,A02,CTRL,Control
+A3,A03,ACTL,"Actinaias ligamentina dominated, live"
+A4,A04,AMBS,"Amblema plicata dominated, sham"
+A5,A05,AMBS,"Amblema plicata dominated, sham"
+A6,A06,CTRL,Control
+A7,A07,ACTS,"Actinaias ligamentina dominated, sham"
+A8,A08,ACTL,"Actinaias ligamentina dominated, live"
+A9,A09,AMBS,"Amblema plicata dominated, sham"
+A10,A10,ACTS,"Actinaias ligamentina dominated, sham"
+B1,B01,CTRL,Control
+B2,B02,AMBS,"Amblema plicata dominated, sham"
+B3,B03,AMBS,"Amblema plicata dominated, sham"
+B4,B04,AMBL,"Amblema plicata dominated, live"
+B5,B05,ACTS,"Actinaias ligamentina dominated, sham"
+B6,B06,AMBS,"Amblema plicata dominated, sham"
+B7,B07,AMBL,"Amblema plicata dominated, live"
+B8,B08,CTRL,Control
+B9,B09,ACTL,"Actinaias ligamentina dominated, live"
+B10,B10,AMBL,"Amblema plicata dominated, live"
+C1,C01,ACTL,"Actinaias ligamentina dominated, live"
+C2,C02,ACTL,"Actinaias ligamentina dominated, live"
+C3,C03,CTRL,Control
+C4,C04,ACTL,"Actinaias ligamentina dominated, live"
+C5,C05,AMBL,"Amblema plicata dominated, live"
+C6,C06,ACTL,"Actinaias ligamentina dominated, live"
+C7,C07,AMBS,"Amblema plicata dominated, sham"
+C8,C08,AMBL,"Amblema plicata dominated, live"
+C9,C09,ACTS,"Actinaias ligamentina dominated, sham"
+C10,C10,AMBS,"Amblema plicata dominated, sham"
+D1,D01,ACTS,"Actinaias ligamentina dominated, sham"
+D2,D02,ACTS,"Actinaias ligamentina dominated, sham"
+D3,D03,AMBL,"Amblema plicata dominated, live"
+D4,D04,CTRL,Control
+D5,D05,CTRL,Control
+D6,D06,AMBL,"Amblema plicata dominated, live"
+D7,D07,ACTL,"Actinaias ligamentina dominated, live"
+D8,D08,AMBS,"Amblema plicata dominated, sham"
+D9,D09,ACTS,"Actinaias ligamentina dominated, sham"
+D10,D10,CTRL,Control
+E1,E01,AMBL,"Amblema plicata dominated, live"
+E2,E02,AMBS,"Amblema plicata dominated, sham"
+E3,E03,ACTS,"Actinaias ligamentina dominated, sham"
+E4,E04,AMBL,"Amblema plicata dominated, live"
+E5,E05,CTRL,Control
+E6,E06,ACTL,"Actinaias ligamentina dominated, live"
+E7,E07,ACTS,"Actinaias ligamentina dominated, sham"
+E8,E08,CTRL,Control
+E9,E09,ACTL,"Actinaias ligamentina dominated, live"
+E10,E10,ACTS,"Actinaias ligamentina dominated, sham"
