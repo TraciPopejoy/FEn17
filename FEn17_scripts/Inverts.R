@@ -7,11 +7,11 @@ library(xlsx)
 library(vegan)
 
 #############     Invert Data in Field Surber Samples    ##############
-Treat<-read.csv("FEn17OKTreatments.csv", sep=",")#bring in enclosure and treatment data
-TaxaList<-read.xlsx("NSFMacroInvertTaxaList.xlsx", sheetIndex = 1)
-BiomassReg<-read.xlsx("Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1, stringsAsFactors=F)
+Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",")#bring in enclosure and treatment data
+TaxaList<-read.xlsx("./FEn17_data/NSFMacroInvertTaxaList.xlsx", sheetIndex = 1)
+BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1, stringsAsFactors=F)
 
-FEn17Inv<-read.csv("FEn17InvMeas.csv")
+FEn17Inv<-read.csv("./FEn17_data/FEn17InvMeas.csv")
 Inv<-FEn17Inv
 
 #clean the data frame
@@ -90,13 +90,12 @@ ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=log10(Sum.mg), color=Treatment))+
 
 
 #converting mean biomass to biomass/meter
-SlurryData<-read.csv("SubSamFEn17OK.csv", stringsAsFactors = F)
+SlurryData<-read.csv("./FEn17_data/SubSamFEn17OK.csv", stringsAsFactors = F)
 SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),2]
 SlurryData$TEid<-paste("w",SlurryData$Week,SlurryData$Enc2, sep="")
 InvTotalBM$Density<-InvTotalBM$Sum.mg/(SlurryData[match(InvTotalBM$TEid, SlurryData$TEid),5]*.03315)
 
 ###would use density because sampling was not constant (not always full basket recovery)
-
 
 ###Total Summary of Data####
 InvSumA<-ddply(Counts,.variables=c("TEid"),.fun=function(x) {count(x,x[1,1])[,2]})
@@ -116,17 +115,3 @@ InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
 
 ggplot(InvSum, aes(x=Treatment, y=log10(BMDensity.mgpm2)))+
   geom_point()
-
-
-############## writing the data for Caryn ######################
-
-totalBMx<-field.totalBM[,-c(1,5,8)]
-fTuncast<-dcast(totalBMx, Site+SamplingSeason+Surber+Treatment~Taxa, mean)
-write.table(fTuncast, file="FieldTotalBM.csv",sep=",")
-
-avgBMx<-totalBMx[,c(1:3,5:6,4)]
-fTuncast<-dcast(temp, Site+SamplingSeason+Surber+Treatment~Taxa, mean)
-write.table(fTuncast, file="Field 15 Average Biomass.csv",sep=",")
-
-
-

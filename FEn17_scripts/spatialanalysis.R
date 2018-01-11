@@ -1,3 +1,4 @@
+#libraries
 library(sp)
 library(xlsx)
 
@@ -16,16 +17,25 @@ df = as(EnclosureRaster, "SpatialGridDataFrame") # to raster data
 
 EnclosureRaster$Treatment<-Treat[match(EnclosureRaster$enc, Treat$ï..Enclosure), 2]
 
-#### Spatial data ####
-EncDV<-read.csv("EncPhysDisFEn17OK.csv") #table has depth and velocity for each enclosure
-EnclosureRaster$depth<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),2]
-EnclosureRaster$velocity<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),3]
-image(EnclosureRaster["depth"])
-image(EnclosureRaster["velocity"])
-
 # draw labels to verify:
 cc = coordinates(df)
 a=df[["enc"]]
 zc=as.character(a)
 zc[is.na(zc)]="NA"
+text(cc[,1],cc[,2],zc)
+
+#### Spatial data ####
+EncDV<-read.csv("./FEn17_data/EncPhysDisFEn17OK.csv") #table has depth and velocity for each enclosure
+EnclosureRaster$depth<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),2]
+EnclosureRaster$velocity<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),3]
+
+image(EnclosureRaster["depth"])
+text(cc[,1],cc[,2],zc)
+
+image(EnclosureRaster["velocity"])
+text(cc[,1],cc[,2],zc)
+
+Treat$TreatN<-as.numeric(Treat$TreatA)
+EnclosureRaster$TreatN<-Treat[match(EnclosureRaster$enc, Treat$ï..Enclosure),5]
+image(EnclosureRaster["TreatN"])
 text(cc[,1],cc[,2],zc)

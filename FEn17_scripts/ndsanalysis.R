@@ -1,7 +1,7 @@
 library(plyr)
 library(xlsx)
 
-nds1<-read.xlsx("Field Encl Stoich.xlsx", sheetIndex = 3, stringAsFactors=F)
+nds1<-read.xlsx("./FEn17_data/Field Encl Stoich.xlsx", sheetIndex = 3, stringAsFactors=F)
 nds<-nds1[-c(167,168),c(2,3,5,6,14)] #remove extra rows and columns
 nds<-nds[,c(2:5,1)]#longform bar, treatment, chlorophyll
 nd<-nds[nds$Bar.!="047",] #had to remove this because only had two C discs
