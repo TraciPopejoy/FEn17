@@ -92,7 +92,8 @@ InvTotalBM<-ddply(InvBM, .var=c("TEid", "Taxa"),
                                               Sum.mg=sum(x$meanBM.mg,na.rm=T),
                                               Treatment=x$Treatment[1],
                                               Enc=x$Enc[1],
-                                              Week=x$Week[1]
+                                              Week=x$Week[1],
+                                              mean.length=mean(x$length, na.rm=T)
                                               )}) 
 
 ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=log10(Sum.mg), color=Treatment))+
@@ -102,6 +103,29 @@ ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=log10(Sum.mg), color=Treatment))+
 InvTotalBM$Density<-InvTotalBM$Sum.mg/(SlurryData[match(InvTotalBM$TEid, SlurryData$TEid),5]*.03315)
 
 ###would use density because sampling was not constant (not always full basket recovery)
+InvGraph<-merge(InvTotalBM[,-c(4,5)],Counts, by=c("TEid","Taxa","Treatment","Enc","Week"))
+InvGraph<-merge(InvGraph, TaxaList[,c(1,5:9)], by="Taxa")
+InvGraph[InvGraph$Treatment=="AMBL","Type"]<-"Live"
+InvGraph[InvGraph$Treatment=="ACTL","Type"]<-"Live"
+InvGraph[InvGraph$Treatment=="AMBS","Type"]<-"Sham"
+InvGraph[InvGraph$Treatment=="ACTS","Type"]<-"Sham"
+InvGraph[InvGraph$Treatment=="CTRL","Type"]<-"Ctrl"
+InvGraph[InvGraph$Treatment=="AMBL","Spp"]<-"AMB"
+InvGraph[InvGraph$Treatment=="ACTL","Spp"]<-"ACT"
+InvGraph[InvGraph$Treatment=="AMBS","Spp"]<-"AMB"
+InvGraph[InvGraph$Treatment=="ACTS","Spp"]<-"ACT"
+InvGraph[InvGraph$Treatment=="CTRL","Spp"]<-"Ctrl"
+InvGraph$Type<-factor(InvGraph$Type, levels=c("Live","Sham","Ctrl", ordered=T))
+
+InvGraph<-InvGraph[InvGraph$Taxa!= "Tri.Leptoceridae",]
+InvGraph<-InvGraph[InvGraph$Taxa!= "Dip.Other",]
+
+library(wesanderson)
+ggplot(na.omit(InvGraph), 
+       aes(x=T.Trop, y=mean.length, color=Order))+
+  scale_y_log10() +
+  geom_point(aes(size=Density.npm))+
+  facet_wrap(~Type)+theme_classic()
 
 ###Total Summary of Data####
 InvSumA<-ddply(Counts,.variables=c("TEid"),.fun=function(x) {count(x,x[1,1])[,2]})
@@ -119,5 +143,5 @@ InvSum$Week<-Inv[match(InvSum$TEid,Inv$TEid),7]
 InvSum$Treatment<-Treat[match(InvSum$Enc, Treat$Enclosure2), 3]
 InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
 
-ggplot(InvSum, aes(x=Treatment, y=log10(BMDensity.mgpm2)))+
-  geom_point()
+ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2))+
+  geom_point(cex=5)+scale_y_log10()+theme_light()
