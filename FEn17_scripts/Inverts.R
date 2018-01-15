@@ -127,6 +127,9 @@ ggplot(na.omit(InvGraph),
   geom_point(aes(size=Density.npm))+
   facet_wrap(~Type)+theme_classic()
 
+Wrowt edoiandadio
+
+
 ###Total Summary of Data####
 InvSumA<-ddply(Counts,.variables=c("TEid"),.fun=function(x) {count(x,x[1,1])[,2]})
 commat<-dcast(Counts[,-c(3,4,5,7,8)], TEid~...)
