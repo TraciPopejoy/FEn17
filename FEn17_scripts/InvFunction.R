@@ -36,6 +36,41 @@
 #  			David Mouillot, Nicholas A.J. Graham, Sébastien Villéger, Norman W.H.Mason, David R.Bellwood, 
 ##################################################################################
 
+AbMatrixT<-dcast(Counts, TEid + Treatment ~ Taxa, value.var = "Density.npm")
+AbMatrixT[is.na(AbMatrixT)]<-0
+AbMatrix2<-AbMatrixT[,-c(3,5,6,9,12,13,18,21:23,27:28,32,33,35)]
+AbxTreat<-ddply(AbMatrix2, .variables = c("Treatment"), .fun=function(x) colMeans(x[,-c(1,2)]))
+
+
+liveAb<-colMeans(AbxTreat[AbxTreat$Treatment=="AMBL" | AbxTreat$Treatment=="ACTL",-1])
+shamAb<-colMeans(AbxTreat[AbxTreat$Treatment=="AMBS" | AbxTreat$Treatment=="ACTS",-1])
+ctrlAb<-AbxTreat[AbxTreat$Treatment=="CTRL",-1]
+
+MxS<-rbind(liveAb,shamAb)
+SxC<-rbind(shamAb,ctrlAb)
+MxC<-rbind(liveAb,ctrlAb)
+
+trait1<-na.omit(TaxaList[,c(1, 5:9)])
+trait2<-trait1[-c(4,25),-4]
+trait2[trait2$T.Trop=="2or4",4]<- 2
+trait2$T.Trop<-as.numeric(paste(trait2$T.Trop))
+trait3<-na.omit(trait2[match(colnames(MxS), as.character(trait2$Taxa)),])
+trait4<-trait3[,-1]
+rownames(trait4)<-trait3[,1]
+
+match(rownames(trait4), colnames(MxC)) #checking all the coordinates are good
+
+trait5<-as.matrix(trait4)
+rownames(MxS)<-c("Before","After")
+rownames(SxC)<-c("Before","After")
+rownames(MxC)<-c("Before","After")
+
+trait6<-as.matrix(trait4[-c(11,14),])
+MxC2<-MxC[,-c(11,14)]
+MxC3<-as.matrix(MxC2)
+
+####notes: makes sure species always have the same coordinate (row or column number) and 
+#that both data inputs are matrix (NOT dataframes)
 
 FSECchange<-function(coord,abundances)  {
   
@@ -57,7 +92,7 @@ FSECchange<-function(coord,abundances)  {
   if (is.numeric(coord)==F) stop ("coord values must be numeric")
   if(is.na(sum(coord))) stop ("NA are not allowed in 'coord' matrix")
   T<-ncol(coord) # T = number of functional axes
-  if (dim(abundances)[2]!=dim(coord)[1]) stop(" error : different number of species in 'coord' and 'abundances' matrices ")
+  if (dim(abundances)[2]!=dim(coord)[1]) stop (" error : different number of species in 'coord' and 'abundances' matrices ")
   if (NbSp["before"]<=T)  stop(paste("error : community 'before' must contain at least ",T+1, " species",sep=""))
   if (NbSp["after"]<=T)  stop(paste("error : community 'after' must contain at least ",T+1, " species",sep=""))
   
@@ -65,6 +100,7 @@ FSECchange<-function(coord,abundances)  {
   
   # computing relative abundances
   relab<-abundances/apply(abundances,1,sum,na.rm=T)
+  colnames(relab)<-seq(1:ncol(relab))
   
   # status given changes in abundances
   status<-rep(NA,nrow(coord)) 
@@ -74,7 +110,7 @@ FSECchange<-function(coord,abundances)  {
   status[which(relab["Before",]!=0 & relab["After",]==0)]<-"extirpated"
   status[which(relab["Before",]==0 & relab["After",]!=0)]<-"introduced"
   
-  sp_ab<data.frame(relab_before=round(relab[1,]*100),relab_after=round(relab[2,]*100),status=as.factor(status) )
+  sp_ab<-data.frame(relab_before=round(relab[1,]*100),relab_after=round(relab[2,]*100),status=as.factor(status), row.names=NULL)
   row.names(sp_ab)<-row.names(coord)
   
   
@@ -157,7 +193,7 @@ FSECchange<-function(coord,abundances)  {
   ############################################################################################
   
   # definition of matrix FD
-  FD<matrix(0,7,3,dimnames=list(c("FRic","FEve","FDiv","FDis","FEnt","FSpe","FOri"),c("before","after","delta")) )
+  FD<-matrix(0,7,3,dimnames=list(c("FRic","FEve","FDiv","FDis","FEnt","FSpe","FOri"),c("before","after","delta")) )
   
   
   # computing convex hull volume of the total pool of species
@@ -260,7 +296,7 @@ FSECchange<-function(coord,abundances)  {
 #################################      END OF FUNCTION    #############################################
 
 # EXAMPLE (cf figure in Box2)
-do_example<-FALSE    # TURN TO TRUE TO RUN EXAMPLE
+do_example<-TRUE   # TURN TO TRUE TO RUN EXAMPLE
 if(do_example==TRUE) {
   
   # species abundances before and after disturbance

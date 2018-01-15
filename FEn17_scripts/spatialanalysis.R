@@ -1,6 +1,7 @@
 #libraries
 library(sp)
 library(xlsx)
+library(plyr)
 
 EnclosureRaster = data.frame(enc=c("A1","A2","A3","A4","A5","A6","A7","A8","A9","A10",
                       "B1","B2","B3","B4","B5","B6","B7","B8","B9","B10",
@@ -49,3 +50,4 @@ EncDV$Avg.Exposure<-expos[match(EncDV$ï..Enclosure, expos$Enclosure),2]
 EnclosureRaster$exposure<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),4]
 image(EnclosureRaster["exposure"])
 text(cc[,1],cc[,2],zc)
+

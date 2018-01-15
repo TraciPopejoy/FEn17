@@ -21,6 +21,8 @@ Inv$Enc<-substring(Inv$Label,9,11)
 Inv$Week<-substring(Inv$Label,6,8)
 Inv$Treatment<-Treat[match(Inv$Enc, Treat$Enclosure2), 3]
 colnames(Inv)[4]<-"Taxa"
+sort(unique(Inv$Taxa)) #check to make sure no misspellings
+Inv[Inv$Taxa=="Col.Elm.A",4]<-"Col.ElmA"
 
 #summarize data
 Counts<-ddply(Inv, .variables = c("TEid","Taxa"), .fun=function(x) {
@@ -33,6 +35,14 @@ Counts<-ddply(Inv, .variables = c("TEid","Taxa"), .fun=function(x) {
 
 Counts$Family<-as.character(TaxaList$Family[match(Counts$Taxa,TaxaList$Taxa)])
 Counts$Order<-as.character(TaxaList$Order[match(Counts$Taxa,TaxaList$Taxa)])
+
+#converting to density to compensate for different sampling effort
+SlurryData<-read.csv("./FEn17_data/SubSamFEn17OK.csv", stringsAsFactors = F)
+SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),2]
+SlurryData$TEid<-paste("w",SlurryData$Week,SlurryData$Enc2, sep="")
+
+Counts$Density.npm<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5]*.03315)
+
 
 ggplot(data=Counts, aes(x=Treatment, y=log10(n), color=Order)) + geom_point(cex=4)
 
@@ -88,11 +98,7 @@ InvTotalBM<-ddply(InvBM, .var=c("TEid", "Taxa"),
 ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=log10(Sum.mg), color=Treatment))+
   geom_point()+coord_flip()
 
-
 #converting mean biomass to biomass/meter
-SlurryData<-read.csv("./FEn17_data/SubSamFEn17OK.csv", stringsAsFactors = F)
-SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),2]
-SlurryData$TEid<-paste("w",SlurryData$Week,SlurryData$Enc2, sep="")
 InvTotalBM$Density<-InvTotalBM$Sum.mg/(SlurryData[match(InvTotalBM$TEid, SlurryData$TEid),5]*.03315)
 
 ###would use density because sampling was not constant (not always full basket recovery)
