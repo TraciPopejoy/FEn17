@@ -120,14 +120,11 @@ InvGraph$Type<-factor(InvGraph$Type, levels=c("Live","Sham","Ctrl", ordered=T))
 InvGraph<-InvGraph[InvGraph$Taxa!= "Tri.Leptoceridae",]
 InvGraph<-InvGraph[InvGraph$Taxa!= "Dip.Other",]
 
-library(wesanderson)
 ggplot(na.omit(InvGraph), 
        aes(x=T.Trop, y=mean.length, color=Order))+
   scale_y_log10() +
   geom_point(aes(size=Density.npm))+
   facet_wrap(~Type)+theme_classic()
-
-Wrowt edoiandadio
 
 
 ###Total Summary of Data####
