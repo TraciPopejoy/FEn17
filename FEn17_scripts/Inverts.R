@@ -145,3 +145,4 @@ InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
 
 ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2))+
   geom_point(cex=5)+scale_y_log10()+theme_light()
+

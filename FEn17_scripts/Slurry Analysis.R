@@ -86,6 +86,7 @@ ggplot(ChlAfil, aes(x=Treatment, y=ChlAdensity))+geom_boxplot()+facet_wrap(~Week
 #### Combining all the data ####
 ChlAtile$Enc2<-Treat[match(ChlAtile$Enclosure., Treat$ï..Enclosure),2]
 ChlAtile$TEid<-paste(ChlAtile$Week, ChlAtile$Enc2,sep="")
+library(plyr)
 AFDMT<-ddply(AFDM, .variables = c("TEid"), .fun=function(x) {data.frame(TEid=x$TEid[1],
                                                                         Treatment=x$Treatment[1],
                                                                         Week=x$Week[1],
