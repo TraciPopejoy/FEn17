@@ -43,4 +43,4 @@ AllmodelD<-merge(fishbas,InvSum, by=c("TEid","Treatment","Week"))
 
 #exporting to csv for Garrett
 write.csv(AllmodelD, "preliminarydata.csv")
-write.csv(fishbas, "fish&basal2.csv")
+write.csv(fishbas, "fish&basal.csv")
