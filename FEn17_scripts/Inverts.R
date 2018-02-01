@@ -120,20 +120,33 @@ InvGraph$Type<-factor(InvGraph$Type, levels=c("Live","Sham","Ctrl", ordered=T))
 InvGraph<-InvGraph[InvGraph$Taxa!= "Tri.Leptoceridae",]
 InvGraph<-InvGraph[InvGraph$Taxa!= "Dip.Other",]
 
-ggplot(na.omit(InvGraph), 
-       aes(x=T.Trop, y=mean.length, color=Order))+
+ggplot(InvGraph[InvGraph$T.Trop=="4",], 
+       aes(x=T.Trop, y=mean.length, color=Taxa))+
   scale_y_log10() +
-  geom_point(aes(size=Density.npm))+
+  geom_point(aes(size=Density.npm), position="jitter")+
+  theme_bw()+facet_grid(.~Type, space="free", scales = "free")
+
+ggplot(InvGraph, 
+       aes(x=T.Trop, y=Density.npm, fill=Order))+
+  scale_y_log10() +
+  geom_boxplot()+
+  facet_wrap(~Type)+theme_classic()
+
+ggplot(na.omit(InvGraph), 
+       aes(x=Order, y=Density.npm, fill=Order))+
+  scale_y_log10() +
+  geom_boxplot()+
   facet_wrap(~Type)+theme_classic()
 
 
 ###Total Summary of Data####
 InvSumA<-ddply(Counts,.variables=c("TEid"),.fun=function(x) {count(x,x[1,1])[,2]})
-commat<-dcast(Counts[,-c(3,4,5,7,8)], TEid~...)
+commat<-dcast(Counts[,-c(3,4,5,7,8,9)], TEid~...)
 commat[is.na(commat)]<-0
 rownames(commat)<-commat[,1]
 commat<-commat[,-1]
 InvSumA$Shannon<-diversity(commat)
+InvSumA$TotalN<-rowSums(commat)
 InvSumB<-ddply(InvTotalBM,.variables=c("TEid"),.fun=function(x) data.frame(TotalBM.mg=sum(x$Sum.mg),
                                                                            BMDensity.mgpm2=sum(x$Density)))
 InvSum<-merge(InvSumA,InvSumB, by="TEid")
@@ -142,7 +155,52 @@ InvSum$Enc<-Inv[match(InvSum$TEid,Inv$TEid),6]
 InvSum$Week<-Inv[match(InvSum$TEid,Inv$TEid),7]
 InvSum$Treatment<-Treat[match(InvSum$Enc, Treat$Enclosure2), 3]
 InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
+InvSum$Density.npm<-InvSum$TotalN/(InvSum$basketn*.03315)
 
-ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2))+
-  geom_point(cex=5)+scale_y_log10()+theme_light()
+InvSum[InvSum$Treatment=="AMBL","Type"]<-"Live"
+InvSum[InvSum$Treatment=="ACTL","Type"]<-"Live"
+InvSum[InvSum$Treatment=="AMBS","Type"]<-"Sham"
+InvSum[InvSum$Treatment=="ACTS","Type"]<-"Sham"
+InvSum[InvSum$Treatment=="CTRL","Type"]<-"Ctrl"
+InvSum[InvSum$Treatment=="AMBL","Spp"]<-"AMB"
+InvSum[InvSum$Treatment=="ACTL","Spp"]<-"ACT"
+InvSum[InvSum$Treatment=="AMBS","Spp"]<-"AMB"
+InvSum[InvSum$Treatment=="ACTS","Spp"]<-"ACT"
+InvSum[InvSum$Treatment=="CTRL","Spp"]<-"Ctrl"
+InvSum$Type<-factor(InvSum$Type, levels=c("Live","Sham","Ctrl", ordered=T))
+
+RAcommat<-commat/rowSums(commat)
+RAcommat$sites<-rownames(RAcommat)
+RAcommat$Type<-InvSum[match(RAcommat$sites, InvSum$TEid),12]
+ComGraph<-melt(RAcommat)
+ComGraph$Order<-InvGraph[match(ComGraph$variable, InvGraph$Taxa),12]
+
+commat1<-commat
+commat1$sites<-rownames(commat1)
+commat1$Type<-InvSum[match(commat1$sites, InvSum$TEid),12]
+commat2<-melt(commat1)
+
+ggplot(data = ComGraph, aes(x = sites, y = value, fill = Order)) + 
+  geom_bar(stat="identity") + coord_flip()+
+  labs(x="Sites", y="Relative Abundance") +
+  theme(axis.text.x = element_text(size=9,color="black"),
+        axis.title.y=element_text(size=20),
+        plot.background = element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major= element_line(colour=NA), 
+        panel.grid.minor=element_line(colour=NA),
+        title=element_text(size=20),
+        panel.background = element_rect(fill = "white"),
+        axis.line.x=element_line(colour="black"),
+        axis.line.y=element_line(colour="black"))+
+  facet_grid(Type~., space="free", scales="free")
+
+library(wesanderson)
+colors<-c(wes_palette("Zissou")[c(1,3,5)])
+colors<-c("#3B9AB2","#EBCC2A","#F21A00")
+ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2, color=Type))+
+  geom_point(cex=5)+ylim(0,max(InvSum$BMDensity.mgpm2))+
+  ylab("Biomass Density (mg/m sq.)")+
+  scale_color_manual(values=colors)+stat_summary(color="black")+
+  theme_light()
 
