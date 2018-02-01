@@ -8,7 +8,7 @@ library(vegan)
 
 #############     Invert Data in Field Surber Samples    ##############
 Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",")#bring in enclosure and treatment data
-TaxaList<-read.xlsx("./FEn17_data/NSFMacroInvertTaxaList.xlsx", sheetIndex = 1)
+TaxaList<-read.csv("./FEn17_data/TaxaTable.csv", sep=",")
 BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1, stringsAsFactors=F)
 
 FEn17Inv<-read.csv("./FEn17_data/FEn17InvMeas.csv")
@@ -120,7 +120,7 @@ InvGraph$Type<-factor(InvGraph$Type, levels=c("Live","Sham","Ctrl", ordered=T))
 InvGraph<-InvGraph[InvGraph$Taxa!= "Tri.Leptoceridae",]
 InvGraph<-InvGraph[InvGraph$Taxa!= "Dip.Other",]
 
-ggplot(InvGraph[InvGraph$T.Trop=="4",], 
+ggplot(InvGraph, 
        aes(x=T.Trop, y=mean.length, color=Taxa))+
   scale_y_log10() +
   geom_point(aes(size=Density.npm), position="jitter")+
@@ -134,7 +134,7 @@ ggplot(InvGraph,
 
 ggplot(na.omit(InvGraph), 
        aes(x=Order, y=Density.npm, fill=Order))+
-  scale_y_log10() +
+  scale_y_log10() + coord_flip() +
   geom_boxplot()+
   facet_wrap(~Type)+theme_classic()
 

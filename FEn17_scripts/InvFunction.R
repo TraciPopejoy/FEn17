@@ -38,7 +38,7 @@
 
 AbMatrixT<-dcast(Counts, TEid + Treatment ~ Taxa, value.var = "Density.npm")
 AbMatrixT[is.na(AbMatrixT)]<-0
-AbMatrix2<-AbMatrixT[,-c(3,5,6,9,12,13,18,21:23,27:28,32,33,35)]
+AbMatrix2<-AbMatrixT[,-c(6,20,27)]
 AbxTreat<-ddply(AbMatrix2, .variables = c("Treatment"), .fun=function(x) colMeans(x[,-c(1,2)]))
 
 
@@ -50,25 +50,23 @@ MxS<-rbind(liveAb,shamAb)
 SxC<-rbind(shamAb,ctrlAb)
 MxC<-rbind(liveAb,ctrlAb)
 
-trait1<-na.omit(TaxaList[,c(1, 5:9)])
-trait2<-trait1[-c(4,25),-4]
-trait2[trait2$T.Trop=="2or4",4]<- 2
-trait2$T.Trop<-as.numeric(paste(trait2$T.Trop))
-trait3<-na.omit(trait2[match(colnames(MxS), as.character(trait2$Taxa)),])
-trait4<-trait3[,-1]
-rownames(trait4)<-trait3[,1]
+trait1<-na.omit(TaxaList[-c(32,33,6),c(1,7,8)])
 
-match(rownames(trait4), colnames(MxC)) #checking all the coordinates are good
+#trait1$T.Trop<-as.numeric(paste(trait1$T.Trop))
+rownames(trait1)<-trait1[,1]
+trait2<-trait1[sort(as.character(rownames(trait1))),]
 
-trait5<-as.matrix(trait4)
+match(rownames(trait2), colnames(MxC[,-c(31,32,33,34)]))
+match(rownames(trait2), colnames(MxC))==seq(1:36) #checking all the coordinates are good
+
 rownames(MxS)<-c("Before","After")
 rownames(SxC)<-c("Before","After")
 rownames(MxC)<-c("Before","After")
 
-trait6<-as.matrix(trait4[-c(11,14),])
-MxC2<-MxC[,-c(11,14)]
-MxC3<-as.matrix(MxC2)
-
+trait6<-as.numeric(paste(trait2[,-1]))
+MxC2<-as.matrix(MxC[,c(-31)])
+nrow(trait6)
+ncol(MxC2)
 ####notes: makes sure species always have the same coordinate (row or column number) and 
 #that both data inputs are matrix (NOT dataframes)
 
@@ -103,15 +101,17 @@ FSECchange<-function(coord,abundances)  {
   colnames(relab)<-seq(1:ncol(relab))
   
   # status given changes in abundances
-  status<-rep(NA,nrow(coord)) 
+  status<-rep(NA, ncol(relab)) 
   status[which(relab["Before",] == relab["After",])]<-"unchanged"
   status[which(relab["Before",] > relab["After",])]<-"loser"
   status[which(relab["Before",] <  relab["After",])]<-"winner"
   status[which(relab["Before",]!=0 & relab["After",]==0)]<-"extirpated"
   status[which(relab["Before",]==0 & relab["After",]!=0)]<-"introduced"
   
-  sp_ab<-data.frame(relab_before=round(relab[1,]*100),relab_after=round(relab[2,]*100),status=as.factor(status), row.names=NULL)
-  row.names(sp_ab)<-row.names(coord)
+  sp_ab<-data.frame(relab_before = t(round(relab[1,]*100)),
+                    relab_after = t(round(relab[2,]*100)),
+                    status=status)
+  row.names(sp_ab)<-colnames(abundances)
   
   
   # definition of matrix FId
@@ -294,6 +294,8 @@ FSECchange<-function(coord,abundances)  {
 }# end of function FSECchange
 
 #################################      END OF FUNCTION    #############################################
+
+FSECchange(trait6,MxC2)
 
 # EXAMPLE (cf figure in Box2)
 do_example<-TRUE   # TURN TO TRUE TO RUN EXAMPLE
