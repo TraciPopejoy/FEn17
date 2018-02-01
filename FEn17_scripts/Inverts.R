@@ -174,13 +174,15 @@ RAcommat$sites<-rownames(RAcommat)
 RAcommat$Type<-InvSum[match(RAcommat$sites, InvSum$TEid),12]
 ComGraph<-melt(RAcommat)
 ComGraph$Order<-InvGraph[match(ComGraph$variable, InvGraph$Taxa),12]
+ComGraph$Trop<-TaxaList[match(ComGraph$variable, TaxaList$Taxa),"T.Trop"]
 
 commat1<-commat
 commat1$sites<-rownames(commat1)
 commat1$Type<-InvSum[match(commat1$sites, InvSum$TEid),12]
 commat2<-melt(commat1)
+commat2$Trop<-TaxaList[match(commat2$variable, TaxaList$Taxa),"T.Trop"]
 
-ggplot(data = ComGraph, aes(x = sites, y = value, fill = Order)) + 
+ggplot(data = ComGraph, aes(x = sites, y = value, fill = Trop)) + 
   geom_bar(stat="identity") + coord_flip()+
   labs(x="Sites", y="Relative Abundance") +
   theme(axis.text.x = element_text(size=9,color="black"),
