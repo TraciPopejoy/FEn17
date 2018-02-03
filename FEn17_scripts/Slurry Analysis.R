@@ -107,5 +107,5 @@ AFDMT<-ddply(AFDM, .variables = c("TEid"), .fun=function(x) {data.frame(TEid=x$T
 basalres<-merge.data.frame(ChlAtile, AFDMT,by=c("TEid","Enc2","Week","Treatment"))
 basalres<-basalres[,-c(5:16)]
 colnames(basalres)[5]<-"ChlA.ug.cm2"
-basalres$AutoIndex<-(basalres$AFDMg.cm3*1000)/(basalres$ChlA.ug.cm2*.001)
+basalres$AutoIndex<-(basalres$AFDMg.cm2*1000)/(basalres$ChlA.ug.cm2*.001)
 View(basalres)
