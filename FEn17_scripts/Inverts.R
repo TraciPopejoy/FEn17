@@ -7,11 +7,12 @@ library(xlsx)
 library(vegan)
 
 #############     Invert Data in Field Surber Samples    ##############
-Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",")#bring in enclosure and treatment data
-TaxaList<-read.csv("./FEn17_data/TaxaTable.csv", sep=",")
+#bring in enclosure and treatment data, trait/taxa list, and length weight regressions
+Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors = F) 
+TaxaList<-read.csv("./FEn17_data/TaxaTable.csv", sep=",", stringsAsFactors = F)
 BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1, stringsAsFactors=F)
-
-FEn17Inv<-read.csv("./FEn17_data/FEn17InvMeas.csv")
+#THIS IS THE INSECT DATA
+FEn17Inv<-read.csv("./FEn17_data/FEn17InvMeas.csv", stringsAsFactors = F)
 Inv<-FEn17Inv
 
 #clean the data frame
@@ -37,10 +38,7 @@ Counts$Family<-as.character(TaxaList$Family[match(Counts$Taxa,TaxaList$Taxa)])
 Counts$Order<-as.character(TaxaList$Order[match(Counts$Taxa,TaxaList$Taxa)])
 
 #converting to density to compensate for different sampling effort
-SlurryData<-read.csv("./FEn17_data/SubSamFEn17OK.csv", stringsAsFactors = F)
-SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),2]
-SlurryData$TEid<-paste("w",SlurryData$Week,SlurryData$Enc2, sep="")
-
+head(SlurryData) #found in Slurry Analysis sheet
 Counts$Density.npm<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5]*.03315)
 
 
@@ -121,14 +119,14 @@ InvGraph<-InvGraph[InvGraph$Taxa!= "Tri.Leptoceridae",]
 InvGraph<-InvGraph[InvGraph$Taxa!= "Dip.Other",]
 
 ggplot(InvGraph, 
-       aes(x=T.Trop, y=mean.length, color=Taxa))+
-  scale_y_log10() +
+       aes(x=T.Trop, y=T.Habit, color=Type))+
+  #scale_y_log10() +
   geom_point(aes(size=Density.npm), position="jitter")+
-  theme_bw()+facet_grid(.~Type, space="free", scales = "free")
+  theme_bw()#+facet_grid(.~Type, space="free", scales = "free")
 
 ggplot(InvGraph, 
-       aes(x=T.Trop, y=Density.npm, fill=Order))+
-  scale_y_log10() +
+       aes(x=Order, y=Density.npm, fill=T.Trop))+
+  scale_y_log10() +coord_flip()+
   geom_boxplot()+
   facet_wrap(~Type)+theme_classic()
 
@@ -206,3 +204,35 @@ ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2, color=Type))+
   scale_color_manual(values=colors)+stat_summary(color="black")+
   theme_light()
 
+plot(nmds, display = c("sites", "species"), choices = c(1, 2),
+     type = "n", shrink = FALSE)
+points(nmds, display = c("sites", "species"),
+       choices = c(1,2), shrink = FALSE)
+## S3 method for class 'metaMDS'
+text(nmds, display = c( "species"), labels=colnames(commat), 
+     choices = c(1,2), cex=.5)
+text(nmds, display = c( "sites"), labels=rownames(commat), 
+     choices = c(1,2), cex=1, col="red")
+
+##### Functional Diversity Analysis #####
+trait<-TaxaList[,-c(1:4,10,11)]
+rownames(trait)<-TaxaList[,1]
+ordtrait<-trait[order(rownames(trait),decreasing=F),]
+trait1<-as.matrix(ordtrait[,c(3,4)])
+
+AbMatrixT<-dcast(Counts, TEid + Treatment ~ Taxa, value.var = "Density.npm")
+AbMatrixT[is.na(AbMatrixT)]<-0
+Abundances<-AbMatrixT[,-c(1,2)]
+rownames(Abundances)<-AbMatrixT[,1]
+
+rownames(ordtrait)==colnames(Abundances[,-25]) #need it to be true to run the function
+Abundances1<-Abundances[,-25]
+
+ex <- dbFD(trait1,Abundances1)
+
+FuncGraph<-data.frame(FDis=ex$FDis)
+FuncGraph$TEid<-rownames(FuncGraph)
+FuncGraph$Treatment<-InvGraph[match(FuncGraph$TEid, InvGraph$TEid),"Treatment"]
+FuncGraph<-FuncGraph[,c(2,3,1)]
+
+ggplot(FuncGraph, aes(x=Treatment, y=FDis))+geom_boxplot()

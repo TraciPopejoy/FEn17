@@ -41,6 +41,14 @@ AbMatrixT[is.na(AbMatrixT)]<-0
 AbMatrix2<-AbMatrixT[,-c(6,20,27)]
 AbxTreat<-ddply(AbMatrix2, .variables = c("Treatment"), .fun=function(x) colMeans(x[,-c(1,2)]))
 
+Abtest<-AbMatrix2[,-c(1,2)]
+rownames(Abtest)<-AbMatrix2[,1]
+Abtest<-Abtest[-3,-c(10,20,31)]
+trait3<-trait2[-c(10,20),-1]
+trait3$T.Trop<-as.numeric(paste(trait3$T.Trop))
+trait3$T.Habit<-as.numeric(paste(trait3$T.Habit))
+
+trait
 
 liveAb<-colMeans(AbxTreat[AbxTreat$Treatment=="AMBL" | AbxTreat$Treatment=="ACTL",-1])
 shamAb<-colMeans(AbxTreat[AbxTreat$Treatment=="AMBS" | AbxTreat$Treatment=="ACTS",-1])

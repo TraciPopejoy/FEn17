@@ -7,7 +7,18 @@ SlurryData[SlurryData$WeekBad=="4",8]<-"w04"
 SlurryData[SlurryData$WeekBad=="12",8]<-"w12"
 colnames(SlurryData)[8]<-"Week"
 
-Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",")#bring in enclosure and treatment data
+Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors = F)#bring in enclosure and treatment data
+
+SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),2]
+SlurryData$TEid<-paste(SlurryData$Week,SlurryData$Enc2, sep="")
+#Some filters didn't have bucket volumes associated with them
+#5L is written next to them and is the mean bucket volume (considering sig dig)
+SlurryData[is.na(SlurryData$BucketVol),"BucketVol"]<-5000
+#Some filters didn't have baskets associated with them
+#assumed 3 baskets
+SlurryData[is.na(SlurryData$Basket.),"Basket."]<-3
+
+
 
 ##### Ash Free Dry Mass Data #####
 AFDMraw<-read.csv("./FEn17_data/AFDMFEn17OK.csv", stringsAsFactors = F) #datasheet with dried and burned results
@@ -19,15 +30,13 @@ AFDM<-merge.data.frame(AFDM2, SlurryData, by="Filter.")
 AFDM$Tin.filter.combusted<-as.numeric(paste(AFDM$Tin.filter.combusted))
 AFDM$BucketVol<-as.numeric(paste(AFDM$BucketVol))
 
-AFDM$SubstrateVol<-AFDM$Basket.*.03315
+AFDM$SubstrateVol<-AFDM$Basket.*331.5 #centimeter squared
 AFDM$Tare<-AFDM$Tin.Weight+AFDM$PreWeight
 AFDM$DryMass<-AFDM$Tin.filter.dry-AFDM$Tare
 AFDM$OrganicM<-AFDM$Tin.filter.dry-AFDM$Tin.filter.combusted
 AFDM$InOrganicM<-AFDM$DryMass-AFDM$OrganicM
-#Some filters didn't have bucket volumes associated with them
-#5L is written next to them and is the mean bucket volume (considering sig dig)
-AFDM[is.na(AFDM$BucketVol),"BucketVol"]<-5000
-#AFDMdensity units g/m3
+
+#AFDMdensity units g/cm3
 AFDM$AFDMdensity<-(AFDM$OrganicM/AFDM$VolFilrwe)*(AFDM$BucketVol/AFDM$SubstrateVol)
 
 #following filters were water column samples, AFDM density is g / ml
@@ -55,9 +64,10 @@ colnames(ChlAraw)[12]<-"Week"
 
 ChlAtile<-ChlAraw[ChlAraw$Type=="Tiles",]
 ChlAtile$Treatment<-Treat[match(ChlAtile$Enclosure.,Treat$ï..Enclosure),3]
-ChlAtile$Area=0.0005905
+((2.75/2)^2)*pi
+ChlAtile$Area=5.939574 # centimeter squared
 
-ChlAtile$ChlAdensity<-26.7*((ChlAtile$X664nm-ChlAtile$fir750nm)-(ChlAtile$X665nm-ChlAtile$sec750nm))*ChlAtile$Vacetone/(ChlAtile$Area*1)/1000
+ChlAtile$ChlAdensity<-26.7*((ChlAtile$X664nm-ChlAtile$fir750nm)-(ChlAtile$X665nm-ChlAtile$sec750nm))*(ChlAtile$Vacetone/ChlAtile$Area)*1
 
 ggplot(ChlAtile, aes(x=Treatment, y=ChlAdensity))+geom_boxplot()+facet_wrap(~Week)
 
@@ -69,16 +79,16 @@ ChlAfil[ChlAfil$Order=="D76","Order"]<-ChlAfil[ChlAfil$Order=="D76","Enclosure."
 ChlAfil[ChlAfil$Order=="D75","Order"]<-ChlAfil[ChlAfil$Order=="D75","Enclosure."]
 ChlAfil$BucketVol<-SlurryData[match(ChlAfil$Order, SlurryData$Filter.), 2]
 ChlAfil$FilterVol<-SlurryData[match(ChlAfil$Order, SlurryData$Filter.), 3]
-ChlAfil$Area<-SlurryData[match(ChlAfil$Order, SlurryData$Filter.), 5] * .03315
+ChlAfil$Area<-SlurryData[match(ChlAfil$Order, SlurryData$Filter.), "Basket."] * 331.5 #cm2
 ChlAfil$Enc3<-SlurryData[match(ChlAfil$Order,SlurryData$Filter.),1]
 ChlAfil$Treatment<-Treat[match(ChlAfil$Enc3, Treat$ï..Enclosure),3]
 #5L is written next to them and is the mean bucket volume (considering sig dig)
 ChlAfil[is.na(ChlAfil$BucketVol),"BucketVol"]<-5000
 
-ChlAfil$ChlAdensity<-26.7*((ChlAfil$X664nm-ChlAfil$fir750nm)-(ChlAfil$X665nm-ChlAfil$sec750nm))*(ChlAfil$Vacetone/ChlAfil$FilterVol)*(ChlAfil$BucketVol/ChlAfil$Area)/1000
+ChlAfil$ChlAdensity<-26.7*((ChlAfil$X664nm-ChlAfil$fir750nm)-(ChlAfil$X665nm-ChlAfil$sec750nm))*(ChlAfil$Vacetone/ChlAfil$FilterVol)*(ChlAfil$BucketVol/ChlAfil$Area)*1
 
 for(k in which(ChlAfil$Enclosure.=="WC")){
-  ChlAfil[k,"ChlAdensity"]<-26.7*((ChlAfil$X664nm[k]-ChlAfil$fir750nm[k])-(ChlAfil$X665nm[k]-ChlAfil$sec750nm[k]))*(ChlAfil$Vacetone[k]/ChlAfil$FilterVol[k])/1000
+  ChlAfil[k,"ChlAdensity"]<-26.7*((ChlAfil$X664nm[k]-ChlAfil$fir750nm[k])-(ChlAfil$X665nm[k]-ChlAfil$sec750nm[k]))*(ChlAfil$Vacetone[k]/ChlAfil$FilterVol[k])*1
 }
 
 ggplot(ChlAfil, aes(x=Treatment, y=ChlAdensity))+geom_boxplot()+facet_wrap(~Week)
@@ -91,10 +101,11 @@ AFDMT<-ddply(AFDM, .variables = c("TEid"), .fun=function(x) {data.frame(TEid=x$T
                                                                         Treatment=x$Treatment[1],
                                                                         Week=x$Week[1],
                                                                         Enc2=x$Enc2[1],
-                                                                        AFDMg.m3=mean(x$AFDMdensity, na.rm=T),
+                                                                        AFDMg.cm2=mean(x$AFDMdensity, na.rm=T),
                                                                         sdAFDM=sd(x$AFDMdensity,na.rm=T))})
 
 basalres<-merge.data.frame(ChlAtile, AFDMT,by=c("TEid","Enc2","Week","Treatment"))
 basalres<-basalres[,-c(5:16)]
-colnames(basalres)[5]<-"ChlA.mg.m2"
+colnames(basalres)[5]<-"ChlA.ug.cm2"
+basalres$AutoIndex<-(basalres$AFDMg.cm3*1000)/(basalres$ChlA.ug.cm2*.001)
 View(basalres)
