@@ -30,15 +30,30 @@ EncDV<-read.csv("./FEn17_data/EncPhysDisFEn17OK.csv") #table has depth and veloc
 EnclosureRaster$depth<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),2]
 EnclosureRaster$velocity<-EncDV[match(EnclosureRaster$enc, EncDV$ï..Enclosure),3]
 
+Vidtemp<-Viddata[1:50,]
+EnclosureRaster$fishpres<-Vidtemp[match(EnclosureRaster$enc, Vidtemp$Row.Labels),9]
+
+EnclosureRaster$fishN<-Vidtemp[match(EnclosureRaster$enc, Vidtemp$Row.Labels),7]
+
+image(EnclosureRaster["fishN"])
+text(cc[,1],cc[,2],zc)
+
 image(EnclosureRaster["depth"])
 text(cc[,1],cc[,2],zc)
 
 image(EnclosureRaster["velocity"])
 text(cc[,1],cc[,2],zc)
 
-Treat$TreatN<-as.numeric(Treat$TreatA)
+Treat$TreatN<-as.numeric(as.factor(Treat$TreatA))
 EnclosureRaster$TreatN<-Treat[match(EnclosureRaster$enc, Treat$ï..Enclosure),5]
 image(EnclosureRaster["TreatN"])
+text(cc[,1],cc[,2],zc)
+
+
+CHltemp<-ChlAtile[ChlAtile$Week=="w12",]
+EnclosureRaster$Chl12<-CHltemp[match(EnclosureRaster$enc, CHltemp$Enclosure.),"ChlAdensity"]
+EnclosureRaster@data[13,"Chl12"]<-NA
+image(EnclosureRaster["Chl12"])
 text(cc[,1],cc[,2],zc)
 
 #### Structure data ####

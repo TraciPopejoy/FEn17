@@ -34,4 +34,8 @@ FLAT WORMS,Planariidae,Tricladida,Turbellaria,,,,,,,
 Tri.Leptoceridae,Leptoceridae,Trichoptera,Insecta,2,2,"2,3,4","1,3,4,1",2,LeRoy Poff 2008,
 Tri.Molannidae,Molannidae,Trichoptera,Insecta,,,3,3,,Merritt & Cummins,Molannidae
 Hemiptera,Hebridae,Hemiptera,Insecta,,,2,4,,Merritt & Cummins,Hebridae
-Gas.Physidae,Physidae,Gastropoda,Gastropoda,1,3,4,4,3,,
+Gas.Physidae,Physidae,Gastropoda,Gastropoda,1,3,4,3,2,,
+Col.Hydrophilidae,Hydrophilidae,Coleoptera,Insecta,,,2,4,,Merritt & Cummins,
+ANTS,,,,,,,,,,
+Gas.Planorbidae,Planorbidae,Gastropoda,Gastropoda,1,3,4,3,2,,
+Col.G,,,,,,,,,,

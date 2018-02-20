@@ -117,12 +117,18 @@ InvGraph$Type<-factor(InvGraph$Type, levels=c("Live","Sham","Ctrl", ordered=T))
 
 InvGraph<-InvGraph[InvGraph$Taxa!= "Tri.Leptoceridae",]
 InvGraph<-InvGraph[InvGraph$Taxa!= "Dip.Other",]
+TropTable<-data.frame(TropN=seq(1:6),
+                      FFG=c("C-Gatherer","C-Filterer",
+                            "Herbivore","Predator","Shredder","Parasite"))
+InvGraph$FFG<-TropTable[match(InvGraph$T.Trop, TropTable$TropN),2]
 
 ggplot(InvGraph, 
-       aes(x=T.Trop, y=T.Habit, color=Type))+
+       aes(x=FFG, y=mean.length, color=Order))+
   #scale_y_log10() +
   geom_point(aes(size=Density.npm), position="jitter")+
-  theme_bw()#+facet_grid(.~Type, space="free", scales = "free")
+  ylab("mean length (mm)")+xlab("Functional Feeding Group")+theme_bw()+
+  theme(axis.text.x=element_text(angle = -90))+
+  facet_grid(.~Treatment, space="free", scales = "free")
 
 ggplot(InvGraph, 
        aes(x=Order, y=Density.npm, fill=T.Trop))+
