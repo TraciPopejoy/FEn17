@@ -123,11 +123,24 @@ TropTable<-data.frame(TropN=seq(1:6),
 InvGraph$FFG<-TropTable[match(InvGraph$T.Trop, TropTable$TropN),2]
 
 ggplot(InvGraph, 
-       aes(x=FFG, y=mean.length, color=Order))+
+       aes(x=FFG, y=mean.length, color=FFG))+
   #scale_y_log10() +
-  geom_point(aes(size=Density.npm), position="jitter")+
-  ylab("mean length (mm)")+xlab("Functional Feeding Group")+theme_bw()+
-  theme(axis.text.x=element_text(angle = -90))+
+  #geom_boxplot()+
+  geom_point(aes(Density.npm), position="jitter")+
+  ylab("Density n / metersq.")+xlab("Functional Feeding Group")+theme_bw()+
+  theme(axis.text.x=element_text(angle = -90,size=12,color="black"),
+        axis.text.y = element_text(size=12,color="black"),
+        axis.title.y=element_text(size=20),
+        plot.background = element_blank(),
+        panel.border=element_blank(),
+        panel.grid.major= element_line(colour=NA), 
+        panel.grid.minor=element_line(colour=NA),
+        title=element_text(size=20),
+        panel.background = element_rect(fill = "white"),
+        axis.line.x=element_line(colour="black"),
+        axis.line.y=element_line(colour="black"),
+        strip.background=element_rect(fill="white", color="black"),
+        strip.text=element_text(size=15))+
   facet_grid(.~Treatment, space="free", scales = "free")
 
 ggplot(InvGraph, 
@@ -210,6 +223,8 @@ ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2, color=Type))+
   scale_color_manual(values=colors)+stat_summary(color="black")+
   theme_light()
 
+library(vegan)
+nmds<-metaMDS(commat)
 plot(nmds, display = c("sites", "species"), choices = c(1, 2),
      type = "n", shrink = FALSE)
 points(nmds, display = c("sites", "species"),
@@ -224,21 +239,37 @@ text(nmds, display = c( "sites"), labels=rownames(commat),
 trait<-TaxaList[,-c(1:4,10,11)]
 rownames(trait)<-TaxaList[,1]
 ordtrait<-trait[order(rownames(trait),decreasing=F),]
-trait1<-as.matrix(ordtrait[,c(3,4)])
+trait1<-ordtrait[,c(3,4)]
+trait2<-as.matrix(trait1[-37,])
 
+library(reshape2)
 AbMatrixT<-dcast(Counts, TEid + Treatment ~ Taxa, value.var = "Density.npm")
 AbMatrixT[is.na(AbMatrixT)]<-0
 Abundances<-AbMatrixT[,-c(1,2)]
 rownames(Abundances)<-AbMatrixT[,1]
 
-rownames(ordtrait)==colnames(Abundances[,-25]) #need it to be true to run the function
-Abundances1<-Abundances[,-25]
+rownames(ordtrait)==colnames(Abundances[,-29]) #need it to be true to run the function
+Abundances1<-Abundances[,-29] #Isopoda.miscI not in trait table
+Abundances2<-Abundances1[,-37] #bad traits for Leptoceridae
 
-ex <- dbFD(trait1,Abundances1)
+rownames(trait2)==colnames(Abundances2)
 
-FuncGraph<-data.frame(FDis=ex$FDis)
-FuncGraph$TEid<-rownames(FuncGraph)
-FuncGraph$Treatment<-InvGraph[match(FuncGraph$TEid, InvGraph$TEid),"Treatment"]
-FuncGraph<-FuncGraph[,c(2,3,1)]
+library(FD)
+ex <- dbFD(trait2,Abundances2)
 
-ggplot(FuncGraph, aes(x=Treatment, y=FDis))+geom_boxplot()
+FunciGraph<-data.frame(FDis=ex$FDis,
+                       FRich=ex$FRic,
+                       FEven=ex$FEve,
+                       RaoQ=ex$RaoQ)
+FunciGraph$TEid<-rownames(FunciGraph)
+FunciGraph$Treatment<-InvGraph[match(FunciGraph$TEid, InvGraph$TEid),"Treatment"]
+
+fit <- aov(FEven ~ Treatment, data=FunciGraph)
+summary(fit)
+plot(fit)
+TukeyHSD(fit)
+
+mFGraph<-melt(FunciGraph)
+
+ggplot(mFGraph, aes(x=Treatment, y=value))+geom_boxplot()+
+  facet_wrap(~variable, scales = "free")
