@@ -109,3 +109,41 @@ basalres<-basalres[,-c(5:16)]
 colnames(basalres)[5]<-"ChlA.ug.cm2"
 basalres$AutoIndex<-(basalres$AFDMg.cm2*1000)/(basalres$ChlA.ug.cm2*.001)
 View(basalres)
+
+
+#when tiles were unavailable, we instead used filters to capture ChlA
+#these have NAs that need fixing (bleh)
+#myster filters FC010, FC017 and FC018 (17 & 18 might be E7)
+ChlAShell<-ChlAraw[ChlAraw$Type=="shellsampling",]
+ChlAShell$BucketID<-SlurryData[match(ChlAShell$Enclosure., SlurryData$Filter.), "Type"]
+ChlAShell$Enc<-substring(ChlAShell$BucketID, 1,2)
+ChlAShell$Spp<-substring(ChlAShell$BucketID, 3,5)
+ChlAShell[ChlAShell$Order=="D69",15]<-'AMB'
+ChlAShell[ChlAShell$Order=="D65",15]<-'ACT'
+ChlAShell[ChlAShell$Order=="D84",15]<-'AMB'
+ChlAShell[ChlAShell$Order=="D86",15]<-'ACT'
+
+ChlAShell$FilterVol<-SlurryData[match(ChlAShell$Enclosure., SlurryData$Filter.), 3]
+ChlAShell$BucketVol<-SlurryData[match(ChlAShell$Enclosure., SlurryData$Filter.), 2]
+
+MusselData<-read.csv("./FEn17_data/MusselBMExpFEn17OK.csv")
+MusselData$ShellArea<-(MusselData$L*MusselData$H*2)*0.01
+library(plyr)
+shellareaag<-ddply(MusselData, .variables = c('Genus','Unit'), .fun=function(x) sum(x$ShellArea,na.rm=T))
+shellareaag$ty<-paste(shellareaag$Unit, shellareaag$Genus, sep="")
+
+ChlAShell$ShellArea<-shellareaag[match(ChlAShell$BucketID, shellareaag$ty), "V1"] #cm2
+ChlAShell$Enc2<-SlurryData[match(ChlAShell$Enclosure.,SlurryData$Filter.),9]
+ChlAShell$Treatment<-Treat[match(ChlAShell$Enc2, Treat$Enclosure2),3]
+
+ChlAShell$ChlAdensity<-26.7*((ChlAShell$X664nm-ChlAShell$fir750nm)-(ChlAShell$X665nm-ChlAShell$sec750nm))*(ChlAShell$Vacetone/ChlAShell$FilterVol)*(ChlAShell$BucketVol/ChlAShell$ShellArea)*1
+library(ggplot2)
+ggplot(ChlAShell, aes(x=Spp, y=ChlAdensity, group=Enc2))+
+  geom_line()+facet_wrap(~Treatment)+theme_bw()
+
+
+
+install.packages('profileR')
+library('profileR')
+
+

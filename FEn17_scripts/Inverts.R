@@ -23,7 +23,6 @@ Inv$Week<-substring(Inv$Label,6,8)
 Inv$Treatment<-Treat[match(Inv$Enc, Treat$Enclosure2), 3]
 colnames(Inv)[4]<-"Taxa"
 sort(unique(Inv$Taxa)) #check to make sure no misspellings
-Inv[Inv$Taxa=="Col.Elm.A",4]<-"Col.ElmA"
 
 #summarize data
 Counts<-ddply(Inv, .variables = c("TEid","Taxa"), .fun=function(x) {
@@ -42,7 +41,7 @@ head(SlurryData) #found in Slurry Analysis sheet
 Counts$Density.npm<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5]*.03315)
 
 
-ggplot(data=Counts, aes(x=Treatment, y=log10(n), color=Order)) + geom_point(cex=4)
+ggplot(data=Counts, aes(x=Treatment, y=log10(Density.npm), color=Order)) + geom_point(cex=4)
 
 #############     Field Invert Biomass Calculation     #############
 Inv$Family<-as.character(TaxaList$Family[match(Inv$Taxa,TaxaList$Taxa)])
@@ -173,6 +172,7 @@ InvSum$Week<-Inv[match(InvSum$TEid,Inv$TEid),7]
 InvSum$Treatment<-Treat[match(InvSum$Enc, Treat$Enclosure2), 3]
 InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
 InvSum$Density.npm<-InvSum$TotalN/(InvSum$basketn*.03315)
+InvSum$Enclosure<-Treat[match(InvSum$Enc, Treat$Enclosure2),1]
 
 InvSum[InvSum$Treatment=="AMBL","Type"]<-"Live"
 InvSum[InvSum$Treatment=="ACTL","Type"]<-"Live"
@@ -185,6 +185,8 @@ InvSum[InvSum$Treatment=="AMBS","Spp"]<-"AMB"
 InvSum[InvSum$Treatment=="ACTS","Spp"]<-"ACT"
 InvSum[InvSum$Treatment=="CTRL","Spp"]<-"Ctrl"
 InvSum$Type<-factor(InvSum$Type, levels=c("Live","Sham","Ctrl", ordered=T))
+
+write.csv(InvSum, "FEn17week12insects.csv")
 
 RAcommat<-commat/rowSums(commat)
 RAcommat$sites<-rownames(RAcommat)
