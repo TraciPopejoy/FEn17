@@ -1,15 +1,16 @@
 ##### Basket Slurry Analysis #####
-SlurryData<-read.csv("./FEn17_data/SubSamFEn17OK.csv", stringsAsFactors = F) #bring in volume data; bucket volume, subsample, filter, enclosure
+#bring in volume data; bucket volume, subsample, filter, enclosure
+SlurryData<-read.csv("./FEn17_data/SubSamFEn17OK.csv", stringsAsFactors = F) 
 SlurryData$BucketVol<-as.numeric(paste(SlurryData$BucketVol)) #tell volume to stop being a factor/text
 colnames(SlurryData)[6]<-"WeekBad"
 SlurryData[SlurryData$WeekBad=="8",8]<-"w09"
 SlurryData[SlurryData$WeekBad=="4",8]<-"w04"
 SlurryData[SlurryData$WeekBad=="12",8]<-"w12"
 colnames(SlurryData)[8]<-"Week"
+#bring in enclosure and treatment data
+Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors = F)
 
-Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors = F)#bring in enclosure and treatment data
-
-SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),2]
+SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),"Enclosure2"]
 SlurryData$TEid<-paste(SlurryData$Week,SlurryData$Enc2, sep="")
 #Some filters didn't have bucket volumes associated with them
 #5L is written next to them and is the mean bucket volume (considering sig dig)
@@ -17,7 +18,6 @@ SlurryData[is.na(SlurryData$BucketVol),"BucketVol"]<-5000
 #Some filters didn't have baskets associated with them
 #assumed 3 baskets
 SlurryData[is.na(SlurryData$Basket.),"Basket."]<-3
-
 
 
 ##### Ash Free Dry Mass Data #####
@@ -51,7 +51,8 @@ AFDM$TEid<-paste(AFDM$Week, AFDM$Enc2, sep="")
 AFDM$Treatment<-Treat[match(AFDM$Enclosure, Treat$ï..Enclosure),3]
 
 library(ggplot2)
-ggplot(AFDM, aes(x=Treatment, y=AFDMdensity))+geom_boxplot()+facet_wrap(~AFDM$Week)
+ggplot(AFDM, aes(x=Treatment, y=AFDMdensity))+geom_boxplot()+
+  labs(y="AFDM g/m3")+facet_wrap(~AFDM$Week)
   
 #### Chlorophyll ####
 #this is from the algal tiles generally
@@ -67,6 +68,7 @@ ChlAtile$Treatment<-Treat[match(ChlAtile$Enclosure.,Treat$ï..Enclosure),3]
 ((2.75/2)^2)*pi
 ChlAtile$Area=5.939574 # centimeter squared
 
+#chl mg/cm2
 ChlAtile$ChlAdensity<-26.7*((ChlAtile$X664nm-ChlAtile$fir750nm)-(ChlAtile$X665nm-ChlAtile$sec750nm))*(ChlAtile$Vacetone/ChlAtile$Area)*1
 
 ggplot(ChlAtile, aes(x=Treatment, y=ChlAdensity))+geom_boxplot()+facet_wrap(~Week)
@@ -96,6 +98,10 @@ ggplot(ChlAfil, aes(x=Treatment, y=ChlAdensity))+geom_boxplot()+facet_wrap(~Week
 #### Combining all the data ####
 ChlAtile$Enc2<-Treat[match(ChlAtile$Enclosure., Treat$ï..Enclosure),2]
 ChlAtile$TEid<-paste(ChlAtile$Week, ChlAtile$Enc2,sep="")
+ChlAfil$Enc2<-Treat[match(ChlAfil$Enclosure., Treat$ï..Enclosure),2]
+ChlAfil$TEid<-paste(ChlAfil$Week, ChlAfil$Enc2,sep="")
+#USE ME TO FILL IN DATA GAPS
+ChlAfil2<-ddply(ChlAfil, c("TEid","Week"), summarize, mean.Chl=mean(ChlAdensity, na.rm=T), Chlsd=sd(ChlAdensity, na.rm=T))
 library(plyr)
 AFDMT<-ddply(AFDM, .variables = c("TEid"), .fun=function(x) {data.frame(TEid=x$TEid[1],
                                                                         Treatment=x$Treatment[1],
@@ -104,16 +110,14 @@ AFDMT<-ddply(AFDM, .variables = c("TEid"), .fun=function(x) {data.frame(TEid=x$T
                                                                         AFDMg.cm2=mean(x$AFDMdensity, na.rm=T),
                                                                         sdAFDM=sd(x$AFDMdensity,na.rm=T))})
 
-basalres<-merge.data.frame(ChlAtile, AFDMT,by=c("TEid","Enc2","Week","Treatment"))
+basalres<-merge.data.frame(ChlAtile, AFDMT,by=c("TEid","Enc2","Week","Treatment"), all=T)
 basalres<-basalres[,-c(5:16)]
 colnames(basalres)[5]<-"ChlA.ug.cm2"
+basalres$ChlA.g.cm2<-basalres$ChlA.ug.cm2/1e6
 basalres$AutoIndex<-(basalres$AFDMg.cm2*1000)/(basalres$ChlA.ug.cm2*.001)
 View(basalres)
 
-
-#when tiles were unavailable, we instead used filters to capture ChlA
-#these have NAs that need fixing (bleh)
-#myster filters FC010, FC017 and FC018 (17 & 18 might be E7)
+##### Chlorophyll on Shells week 12 #####
 ChlAShell<-ChlAraw[ChlAraw$Type=="shellsampling",]
 ChlAShell$BucketID<-SlurryData[match(ChlAShell$Enclosure., SlurryData$Filter.), "Type"]
 ChlAShell$Enc<-substring(ChlAShell$BucketID, 1,2)
@@ -128,7 +132,6 @@ ChlAShell$BucketVol<-SlurryData[match(ChlAShell$Enclosure., SlurryData$Filter.),
 
 MusselData<-read.csv("./FEn17_data/MusselBMExpFEn17OK.csv")
 MusselData$ShellArea<-(MusselData$L*MusselData$H*2)*0.01
-library(plyr)
 shellareaag<-ddply(MusselData, .variables = c('Genus','Unit'), .fun=function(x) sum(x$ShellArea,na.rm=T))
 shellareaag$ty<-paste(shellareaag$Unit, shellareaag$Genus, sep="")
 

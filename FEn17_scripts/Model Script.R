@@ -1,40 +1,77 @@
 #script to bring models in, run last
+library(readxl)
 
-library(xlsx)
-fishdata<-read.xlsx("./FEn17_data/videowithabiotics.xlsx", sheetIndex =1 )
+fishdata<-read_excel("./FEn17_data/videowithabiotics.xlsx")
 colnames(fishdata)[c(3,10)]<-c("GTreat","Log(probFish+1)")
 #adding columns that match other data
-fishdata$Enc2<-Treat[match(fishdata$Unit, Treat$ï..Enclosure),2] #Treat found in Slurry Analysis script
-fishdata$Treatment<-Treat[match(fishdata$Unit, Treat$ï..Enclosure),3]
+fishdata[,11:12]<-Treat[match(fishdata$Unit, Treat$ï..Enclosure),c("Enclosure2","TreatA") ] #Treat found in Slurry Analysis script
 fishdata$Week<-rep(NA, nrow(fishdata))
 for(i in 1:nrow(fishdata)){
   if(fishdata$Month[i]=="Oct"){fishdata$Week[i]<-"w12"}else{fishdata$Week[i]<-"w09"}}
-fishdata$TEid<-paste(fishdata$Week,fishdata$Enc2, sep="")
+fishdata$TEid<-paste(fishdata$Week,fishdata$Enclosure2, sep="")
 
-####losing treatments when merge basal and fish - bc basal not complete
 #adding basal resources (chlA and AFDM)
 head(basalres) #result of Slurry Analysis script
-fishbas<-merge(fishdata, basalres, by=c("TEid","Treatment", "Enc2","Week"), all.x=T)
+fishbas<-merge(fishdata, basalres, by=c("TEid", "Week"), all.x=T)
+fishbas<-fishbas[,-15]
+names(fishbas)[13]<-"Enc2"
+###### add in filter derived ChlA?
 
-#adding structure stuff ()
-head(MusselData) #result of spatialanalysis script
-####NEED to ask Thomas for code/length-biomass regressions for mussels
-
-head(EncDV) #result of spatialanalysis script
-EncDV$Enc2<-Treat[match(EncDV$ï..Enclosure, Treat$ï..Enclosure),2]
-EncDV$Treatment<-Treat[match(EncDV$ï..Enclosure, Treat$ï..Enclosure),3]
-EncDV[EncDV$Treatment=="CTRL","Avg.Exposure"]<-0
-#following forloop adds velocity collected at week 9
-for(k in 1:nrow(fishbas)){
-if(fishbas$Week[k]=="w09"){fishbas$Velocity[k]<-EncDV[fishbas[k,"Enc2"],3]}
-if(fishbas$Week[k]=="w09"){fishbas$Depth[k]<-EncDV[fishbas[k,"Enc2"],2]}}
-
-fishbas$Structure<-EncDV[match(fishbas$Enc2, EncDV$Enc2),4]
+#adding mussel structure
+head(EncDVw09) #result of spatialanalysis script
+fishbas$Structure<-EncDVw09[match(fishbas$Enc2, EncDVw09$Enc2),"Avg.Exposure"]
+fishbas$Depth[1:50]<-EncDVw09[match(fishbas$Enc2, EncDVw09$Enc2), "Depth.m"][51:100]
+fishbas$Velocity[1:50]<-EncDVw09[match(fishbas$Enc2, EncDVw09$Enc2), "V.mps"][51:100]
                
 #adding invertebrate biomass
 head(InvSum) #from Inverts script
-AllmodelD<-merge(fishbas,ModelData, by=c("TEid","Treatment","Week"), all=T)
-AllmodelD<-AllmodelD[AllmodelD$Week=="w12",]
+AllmodelD<-merge(fishbas,InvSum, by=c("TEid","Week"), all=T)
+names(MBM)[1]<-"Enc2"
+AllDATA<-merge(AllmodelD, MBM, by=c("Enc2"), all=T)
+AllDATA<-AllDATA[,-c(14,27:30,33,34)]
+write_csv(AllDATA, "./Results/modeldata.csv")
+ChlAfil2
+#### cleaned up in excel - added filter estimates, removed superflous columns
+
+EncDF<-read_excel("./Results/EncModelTable.xlsx", 
+                  col_types=c("text","text","text", "skip","text","text","text","numeric",
+                              "numeric","numeric","numeric","numeric","numeric","text","numeric",
+                              "numeric","numeric","numeric","numeric","numeric","numeric","numeric",
+                              "numeric","numeric","numeric","numeric","numeric","numeric","numeric",
+                              "numeric","numeric","numeric"))
+str(EncDF)
+EncDF$BMDensity.gpm2<-EncDF$BMDensity.mgpm2/1000
+TreatCOV<-EncDF %>% group_by(Treatment.x,Week) %>% summarize(Depth=round(mean(Depth, na.rm=T),2),
+                                                           Velocity=round(mean(Velocity, na.rm=T),3),
+                                                           Chl=round(mean(as.numeric(ChlA.ug.cm2), na.rm=T),4), 
+                                                           ChlSD=round(sd(ChlA.ug.cm2, na.rm=T),4), 
+                                                           AFDM=round(mean(AFDMg.cm2, na.rm=T),4),
+                                                           AFDMSD=round(sd(AFDMg.cm2, na.rm=T),4),
+                                                           MStructure=round(mean(Structure, na.rm=T),2),
+                                                           MStructureSD=round(sd(Structure, na.rm=T),2),
+                                                           MSum=round(mean(sumBM, na.rm=T),2),
+                                                           MSumSD=round(sd(sumBM, na.rm=T),2))
+write.csv(TreatCOV, "./Results/covariate.csv")
+MusselT<-EncDF %>% group_by(Treatment.x) %>% summarize(MStructure=round(mean(Structure, na.rm=T),2),
+                                                       MStructureSD=round(sd(Structure, na.rm=T),2),
+                                                       MSum=round(mean(sumBM, na.rm=T),2),
+                                                       MSumSD=round(sd(sumBM, na.rm=T),2),
+                                                       ACT=round(mean(ACTbm, na.rm=T),2),
+                                                       ACTsd=round(sd(ACTbm, na.rm=T),2),
+                                                       AMB=round(mean(AMBbm, na.rm=T),2),
+                                                       AMBsd=round(sd(AMBbm, na.rm=T),2),
+                                                       meanBM=round(mean(meanBM, na.rm=T),2),
+                                                       meanBNsd=round(sd(meanBM, na.rm=T),2))
+write.csv(MusselT, "./Results/musselBM.csv")
+
+EncGRAPH<-melt(EncDF[,c(1:6,15,17,32,12)])
+ggplot(EncGRAPH,aes(x=variable, y=value, fill=GTreat))+geom_boxplot()+
+  fungraph
+
+
+
+
+###### Build GLMM models #####
 
 #Explore the data & check ANOVA assumptions
 #Check for homogeneity

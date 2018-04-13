@@ -12,19 +12,41 @@ Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors 
 TaxaList<-read.csv("./FEn17_data/TaxaTable.csv", sep=",", stringsAsFactors = F)
 BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1, stringsAsFactors=F)
 #THIS IS THE INSECT DATA
-FEn17Inv<-read.csv("./FEn17_data/FEn17InvMeas.csv", stringsAsFactors = F)
-Inv<-FEn17Inv
+FEn17Inv12<-read.csv("./FEn17_data/FEn17InvMeas.csv", stringsAsFactors = F)
+FEn17Inv12<-FEn17Inv12[FEn17Inv12$Label!="rulerxocc.tif",-c(3:5)]
+FEn17Inv12$TEid<-substring(FEn17Inv12$Label, 6,11)
+FEn17Inv12$Enc<-substring(FEn17Inv12$Label,9,11)
+FEn17Inv12$Week<-substring(FEn17Inv12$Label,6,8)
+FEn17Inv09<-read.csv("./FEn17_data/FEn17w09.csv", stringsAsFactors = F)
+FEn17Inv09<-FEn17Inv09[,-c(3:5,9)]
+FEn17Inv09$Week<-"w09"
+FEn17Inv09$TEid<-paste(FEn17Inv09$Week, FEn17Inv09$Enc, sep="")
+names(FEn17Inv12)[4]<-"Taxa"
+names(FEn17Inv12)[1]<-"Obs"
+names(FEn17Inv09)[2]<-"Label"
+FEn17Inv09<-FEn17Inv09[,c(1:4,7,5,6)]
+Inv<-rbind(FEn17Inv12, FEn17Inv09) #contains every insect identified from baskets
 
 #clean the data frame
-Inv<-Inv[-c(1:3),-c(3:5)]
-Inv$TEid<-substring(Inv$Label, 6,11)
-Inv$Enc<-substring(Inv$Label,9,11)
-Inv$Week<-substring(Inv$Label,6,8)
-Inv$Treatment<-Treat[match(Inv$Enc, Treat$Enclosure2), 3]
-colnames(Inv)[4]<-"Taxa"
+Inv$Treatment<-Treat[match(Inv$Enc, Treat$Enclosure2), "TreatA"]
 sort(unique(Inv$Taxa)) #check to make sure no misspellings
+Inv$Treatment<-factor(Inv$Treatment, c("CTRL","ACTL","ACTS","AMBL","AMBS"))
+###table is wrong
+treattype<-data.frame(Treatment=na.omit(unique(Inv$Treatment)),
+                      Type=factor(c("Live","Sham","Ctrl","Sham","Live"),levels=c("Ctrl","Sham","Live")), 
+                      Spp=factor(c("ACT","ACT","Ctrl","AMB","AMB"), levels=c("Ctrl","AMB","ACT")))
+Inv$Type<-treattype[match(Inv$Treatment, treattype$Treatment),"Type"]
+Inv$Spp<-treattype[match(Inv$Treatment,treattype$Treatment),"Spp"]
+Inv$Family<-as.character(TaxaList$Family[match(Inv$Taxa,TaxaList$Taxa)])
+Inv$Order<-as.character(TaxaList$Order[match(Inv$Taxa,TaxaList$Taxa)])
+Inv$Length<-Inv$Length.cm*10
 
-#summarize data
+ggplot(Inv[Inv$Order=="Odonata",], aes(x=Length.cm,))+geom_histogram()
+#removing all odonates >1.4cm
+remOD<-Inv[(Inv$Order=="Odonata" & Inv$Length.cm>1.4),]
+Inv<-Inv[!(Inv$Order=="Odonata" & Inv$Length.cm>1.4),]
+
+#how many individuals of each taxa in each enclosure/time; long format
 Counts<-ddply(Inv, .variables = c("TEid","Taxa"), .fun=function(x) {
   data.frame(TEid=x[1,5],
             Enc=x[1,6],
@@ -32,67 +54,49 @@ Counts<-ddply(Inv, .variables = c("TEid","Taxa"), .fun=function(x) {
             Treatment=x[1,8],
             n=count(x,x[1,4])[,2])
   })
-
 Counts$Family<-as.character(TaxaList$Family[match(Counts$Taxa,TaxaList$Taxa)])
 Counts$Order<-as.character(TaxaList$Order[match(Counts$Taxa,TaxaList$Taxa)])
-Counts<-Counts[-743,]
 
 #converting to density to compensate for different sampling effort
 head(SlurryData) #found in Slurry Analysis sheet
 Counts$Density.npm<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5]*.03315)
 Counts$Density.npb<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5])
 
-
-ggplot(data=Counts, aes(x=Treatment, y=Density.npm, color=Order)) + 
-  geom_point(position="jitter") +
-  scale_y_log10()
-
 #############     Field Invert Biomass Calculation     #############
-Inv$Family<-as.character(TaxaList$Family[match(Inv$Taxa,TaxaList$Taxa)])
-Inv$Order<-as.character(TaxaList$Order[match(Inv$Taxa,TaxaList$Taxa)])
-Inv$Length<-Inv$Length.cm*10
-
-Inv$FFG<-InvGraph[match(Inv$Taxa, InvGraph$Taxa), "FFG"]
-Inv$Type<-InvGraph[match(Inv$Treatment, InvGraph$Treatment), "Type"]
-
-ggplot(Inv[!is.na(Inv$Treatment),], 
-       aes(x=FFG, y=Length))+
-  geom_violin()+scale_y_sqrt()+facet_wrap(~Type)+fungraph
-
 #removing taxa that give me trouble 
 InvA<-Inv[!Inv$Order=="misc",]
 InvB<-na.omit(InvA)
-
-
+#apply appropriate biomass regressions to each length
 InvBM<-ddply(.data=InvB, .var=c("Taxa"), .fun=function(x) {
-  idx<-x[1,c("Family","Order")]
-  if(idx$Family=="misc"){
+  idx<-x[1,c("Family","Order")] #what family/order are we on
+  if(idx$Family=="misc"){ #if not ID'd to family, use order level regressions
     plcoeffs<-BiomassReg[BiomassReg$Order == idx$Order &
                          !is.na(BiomassReg$Order == idx$Order),]
-  }else{
+  }else{ #pull all the regressions for that family
     plcoeffs<-BiomassReg[BiomassReg$Family==idx$Family&
                          BiomassReg$Order == idx$Order&
                          !is.na(BiomassReg$Family==idx$Family), ]  
   }
-  ldply(lapply(1:dim(x)[[1]],FUN=function(i) {
+  #which regressions were actually built for insects this size
+  ldply(lapply(1:dim(x)[[1]],FUN=function(i) { 
     idx2<- c(x$Length[i]>=plcoeffs[,19] & x$Length[i]<=plcoeffs[,20]) 
-    idx2[is.na(idx2)]<-T
+    idx2[is.na(idx2)]<-T #if no size range listed, use the regression anyways
     d1<-plcoeffs[idx2,]
-    indmassest<-d1$a*(x$Length[i]^d1$b) 
+    indmassest<-d1$a*(x$Length[i]^d1$b) #power law to determine biomass
     data.frame(
       TEid=x$TEid[i],
       Enc=x$Enc[i],
       Week=x$Week[i],
       Treatment=x$Treatment[i],
       length=x$Length[i],
-      neq=length(idx2),
-      ninR=sum(idx2),
+      neq=length(idx2), #number of possible equations used
+      ninR=sum(idx2), #number of equations used
       meanBM.mg=mean(indmassest),
       median=median(indmassest),
       stDev=sd(indmassest))}), 
     data.frame)
 })
-
+#get mean biomass and sum of each taxa for each enclosure/time
 InvTotalBM<-ddply(InvBM, .var=c("TEid", "Taxa"),
                   .fun=function(x){data.frame(mean.mg=mean(x$meanBM.mg, na.rm=T), 
                                               median.mg=median(x$meanBM.mg, na.rm=T), 
@@ -103,57 +107,170 @@ InvTotalBM<-ddply(InvBM, .var=c("TEid", "Taxa"),
                                               Week=x$Week[1],
                                               mean.length=mean(x$length, na.rm=T)
                                               )}) 
-
-ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=Sum.mg, color=Treatment))+
-  geom_point()+coord_flip()+scale_y_log10()
+#check it worked
+#ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=Sum.mg, color=Treatment))+
+#  geom_point()+coord_flip()+scale_y_log10()
 
 #converting mean biomass to biomass/meter
-InvTotalBM$Density<-InvTotalBM$Sum.mg/(SlurryData[match(InvTotalBM$TEid, SlurryData$TEid),5]*.03315)
-
+InvTotalBM$BMDensity<-InvTotalBM$Sum.mg/(SlurryData[match(InvTotalBM$TEid, SlurryData$TEid),"Basket."]*.03315)
 ###would use density because sampling was not constant (not always full basket recovery)
+
+#get each taxa and teid with counts and biomass, and density of both
 InvGraph<-merge(InvTotalBM[,-c(4,5)],Counts, by=c("TEid","Taxa","Treatment","Enc","Week"))
-InvGraph<-merge(InvGraph, TaxaList[,c(1,2,5:9)], by="Taxa")
-InvGraph[InvGraph$Treatment=="AMBL","Type"]<-"Live"
-InvGraph[InvGraph$Treatment=="ACTL","Type"]<-"Live"
-InvGraph[InvGraph$Treatment=="AMBS","Type"]<-"Sham"
-InvGraph[InvGraph$Treatment=="ACTS","Type"]<-"Sham"
-InvGraph[InvGraph$Treatment=="CTRL","Type"]<-"Ctrl"
-InvGraph[InvGraph$Treatment=="AMBL","Spp"]<-"AMB"
-InvGraph[InvGraph$Treatment=="ACTL","Spp"]<-"ACT"
-InvGraph[InvGraph$Treatment=="AMBS","Spp"]<-"AMB"
-InvGraph[InvGraph$Treatment=="ACTS","Spp"]<-"ACT"
-InvGraph[InvGraph$Treatment=="CTRL","Spp"]<-"Ctrl"
-InvGraph$Type<-factor(InvGraph$Type, levels=c("Live","Sham","Ctrl", ordered=T))
-InvGraph$Treatment<-factor(InvGraph$Treatment, levels=c("ACTL","ACTS","AMBL","AMBS","CTRL"))
+#get traits into the graph
+InvGraph<-merge(InvGraph, TaxaList[,c(1,2,5:9)], by=c("Taxa", "Family"))
+InvGraph$Type<-treattype[match(InvGraph$Treatment, treattype$Treatment),"Type"]
+InvGraph$Spp<-treattype[match(InvGraph$Treatment, treattype$Treatment),"Spp"]
 TropTable<-data.frame(TropN=seq(1:6),
                       FFG=c("C-Gatherer","C-Filterer",
                             "Herbivore","Predator","Shredder","Parasite"))
-InvGraph$FFG<-TropTable[match(InvGraph$T.Trop, TropTable$TropN),2]
+InvGraph$FFG<-TropTable[match(InvGraph$T.TropP, TropTable$TropN),2]
 
-fungraph<-theme(axis.text.x=element_text(angle = 90,size=12,color="black"),
-      axis.text.y = element_text(size=12,color="black"),
-      axis.title.y=element_text(size=20),
-      plot.background = element_blank(),
-      panel.border=element_blank(),
-      panel.grid.major= element_line(colour=NA), 
-      panel.grid.minor=element_line(colour=NA),
-      title=element_text(size=20),
-      panel.background = element_rect(fill = "white"),
-      axis.line.x=element_line(colour="black"),
-      axis.line.y=element_line(colour="black"),
-      strip.background=element_rect(fill="white", color="black"),
-      strip.text=element_text(size=15))
+#### graph city ####
+
+fungraph<-theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1),
+                axis.text.y = element_text(size=12,color="black"),
+                axis.title.y=element_text(size=20),
+                plot.background = element_blank(),
+                panel.border=element_blank(),
+                panel.grid.major= element_line(colour=NA), 
+                panel.grid.minor=element_line(colour=NA),
+                title=element_text(size=20),
+                panel.background = element_rect(fill = "white"),
+                legend.key=element_rect(colour=NA), 
+                axis.line.x=element_line(colour="black"),
+                axis.line.y=element_line(colour="black"),
+                strip.background=element_rect(fill="white", color="black"),
+                strip.text=element_text(size=15))
+library(colorspace)
+CP<-diverge_hcl(5, h=c(180,70), c = 100, l = c(50, 90), power = 1)
+CP[3]<-"black"
+CP2<-data.frame(colorss=CP[c(3,1,2,5,4)], Treat=unique(Traitplot$Treatment))
+
+Traitplot<-InvGraph %>% group_by(Treatment,Family,FFG) %>% summarize(meanDenMeter=mean(Density.npm),
+                                                                      meansize=mean(mean.length),
+                                                                      meanDenBask=mean(Density.npb))
+Traitplot$Type<-treattype[match(Traitplot$Treatment, treattype$Treatment), "Type"]
+
+file<-c("1.tiff","2.tiff","3.tiff","4.tiff","5.tiff")
+
+for(i in 1:length(unique(Traitplot$Treatment))){
+  ggplot(Traitplot, 
+         aes(x=FFG, y=meansize, color=Treatment))+
+    geom_point(data=subset(Traitplot, 
+                           Treatment==c(paste(unique(Traitplot$Treatment)[i]))),
+      aes(size=sqrt(meanDenMeter)), position=position_dodge(width=.1))+
+    ylim(c(0.5,5.25))+
+    labs(y="Mean Size (mm)", x="Functional Feeding Group")+
+    scale_color_manual(values=paste(CP2[CP2$Treat==paste(unique(Traitplot$Treatment)[i]),"colorss"]),
+                       name="Treatment")+
+    scale_size_area(name=expression(sqrt(Individuals/m^{2}))) +
+    theme_bw()+theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1),
+                     axis.text.y = element_text(size=12,color="black"),
+                     axis.title.y=element_text(size=20),
+                     title=element_text(size=20),
+                     panel.background = element_rect(fill = "white"),
+                     legend.key=element_rect(colour=NA), 
+                     axis.line.x=element_line(colour="black"),
+                     axis.line.y=element_line(colour="black"),
+                     strip.background=element_rect(fill="white", color="black"),
+                     strip.text=element_text(size=15))
+  ggsave(file[i])
+}
+
+ggplot(Traitplot, 
+       aes(x=FFG, y=meansize, color=Treatment))+
+  geom_point(aes(size=sqrt(meanDenMeter)), alpha=.6)+
+  ylim(c(.5,5.25))+
+  labs(y="Mean Size (mm)", x="Functional Feeding Group")+
+  scale_color_manual(breaks=c("CTRL","ACTL","ACTS","AMBL","AMBS"),
+                     labels=c("Control","ACT live","ACT sham","AMB live","AMB sham"),
+                     values=CP[c(3,1,2,5,4)],
+                     name="Treatment")+
+  scale_size_area(name=expression(sqrt(Individuals/m^{2}))) +
+  theme_bw()+theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1),
+                   axis.text.y = element_text(size=12,color="black"),
+                   axis.title.y=element_text(size=20),
+                   title=element_text(size=20),
+                   panel.background = element_rect(fill = "white"),
+                   legend.key=element_rect(colour=NA), 
+                   axis.line.x=element_line(colour="black"),
+                   axis.line.y=element_line(colour="black"),
+                   strip.background=element_rect(fill="white", color="black"),
+                   strip.text=element_text(size=15))
+ggsave("sfsplot.png")
+
+ggplot(Traitplot[Traitplot$FFG=="Herbivore",], 
+       aes(x=Family, y=meansize, color=Treatment, label=FFG))+
+  geom_point(aes(size=sqrt(meanDenBask)), shape=21)+
+  labs(y="Mean Size (mm)", x="Functional Feeding Group")+
+  scale_color_manual(values=CP[c(3,1,2,5,4)],
+                     name="Treatment")+
+  scale_size_area(name=expression(individuals/basket))+
+  fungraph + facet_grid(~FFG, switch="x", scales="free", space="free")
+
+ggplot(InvGraph[InvGraph$Family=="Heptageniidae" | 
+                   InvGraph$Family=="Polycentropidae"|
+                   InvGraph$Family=="Chironomidae",], 
+       aes(x=Family, y=Density.npm, fill=Treatment))+
+  geom_boxplot()+
+  labs(y=expression(Individuals/m^{2}), x="Functional Feeding Group")+
+  scale_fill_manual(values=CP[c(3,1,2,5,4)],
+                     name="Treatment")+
+  theme_bw() +  theme(axis.text.x=element_text(angle = 0,size=12,color="black", 
+                                               hjust=.5),
+                      axis.text.y = element_text(size=12,color="black"),
+                      axis.title.y=element_text(size=20),
+                      title=element_text(size=20),
+                      panel.background = element_rect(fill = "white"),
+                      legend.key=element_rect(colour=NA), 
+                      axis.line.x=element_line(colour="black"),
+                      axis.line.y=element_line(colour="black"),
+                      strip.background=element_rect(fill="white", color="black"),
+                      strip.text=element_text(size=15))+
+  facet_grid(~FFG+Week, switch="x", scales="free", space="free")
+ggsave("aund.png")
+ggplot(remOD, aes(x=Family, y=Length.cm, color=Treatment))+
+  geom_point(size=3, alpha=.5, position=position_dodge(width=.2))+
+  labs(y="Mean Size (cm)", x="Functional Feeding Group")+
+  scale_color_manual(values=CP[c(3,1,2,5,4)],
+                     name="Treatment")+fungraph
+ 
+
+ggplot(Traitplot[Traitplot$FFG=="Herbivore" | 
+                   Traitplot$FFG=="Predator",], 
+       aes(x=FFG, y=meansize, color=Treatment))+
+  geom_point(aes(size=meanDenMeter))+
+  labs(y="Mean Size (mm)", x="Functional Feeding Group")+
+  scale_color_manual(values=CP[c(3,1,2,5,4)],
+                     name="Treatment")+
+  scale_size_area(name=expression(individuals/m^{2})) +
+  fungraph+facet_wrap(~Treatment, ncol=5)
+ggsave("ComboTrait.tiff")
+
+ggplot(Traitplot[Traitplot$FFG=="Herbivore" | 
+                   Traitplot$FFG=="Predator",|
+                   Traitplot$FFG=="C-Filterer"], 
+       aes(x=Family, y=meansize, color=Treatment))+
+  geom_point(aes(size=meanDenMeter))+
+  labs(y="Mean Size (mm)", x="Functional Feeding Group")+
+  scale_color_manual(values=CP[c(3,1,2,5,4)],
+                     name="Treatment")+
+  scale_size_area(name=expression(individuals/m^{2})) +
+  fungraph+facet_wrap(~Treatment, ncol=5)
+ggsave("ComboTrait.tiff")
 
 ggplot(InvGraph, 
        aes(x=FFG, y=mean.length, color=Treatment))+
-  scale_y_sqrt() +
+  scale_y_sqrt() +scale_color_manual(values=CP[c(3,1,2,5,4)])+
+  scale_size_area(name=expression(individuals/m^{2}))+
   geom_point(aes(size=Density.npm), alpha=.5, position="jitter")+
   ylab("Mean Length (mm)")+xlab("Functional Feeding Group")+
   facet_grid(.~Type, space="free", scales = "free")+fungraph
-
+ggsave("./Figures/EnclosureTraitSpace.tiff")
 
 ggplot(InvGraph, 
-       aes(x=Order, y=Density.npm, fill=T.Trop))+
+       aes(x=Order, y=Density.npm, fill=FFG))+
   scale_y_log10() +coord_flip()+
   geom_boxplot()+
   facet_wrap(~Type)+theme_classic()
@@ -178,13 +295,7 @@ ggplot(InvGraph,
   facet_grid(.~FFG, space="free", scales = "free")+fungraph+
   scale_fill_brewer(palette="Paired")
 
-ggplot(InvGraph, 
-       aes(x=Type, y=Density.npm, fill=Treatment))+
-  scale_y_log10() +
-  geom_boxplot()+
-  ylab("Density (n/meter.sq)")+xlab("Treatments")+
-  facet_grid(.~FFG, space="free", scales = "free")+
-  scale_fill_brewer(palette="Paired")+fungraph
+ggplot(InvGraph, aes(x=FFG))
 
 (p1<-ggplot(InvGraph[InvGraph$T.Trop==2,], 
        aes(x=Type, y=Density.npm, fill=Treatment))+
@@ -199,39 +310,31 @@ ggplot(InvGraph,
   ylab("Mean Length (mm)")+xlab("Treatments")+
   facet_grid(.~FFG, space="free", scales = "free")+
   scale_fill_brewer(palette="Paired")+fungraph)
+library(gridExtra)
 grid.arrange(p1,p2,ncol=2)
+ggsave("./Figures/Filterer.tiff")
 
 ###Total Summary of Data####
+
 InvSumA<-ddply(Counts,.variables=c("TEid"),.fun=function(x) {count(x,x[1,1])[,2]})
-commat<-dcast(Counts[,-c(3,4,5,7,8,9)], TEid~...)
+#make a typical community matrix (col:species, row: obs)
+commat<-dcast(Counts[,-c(3,4,5,6,7,8,9)], TEid~...)
 commat[is.na(commat)]<-0
 rownames(commat)<-commat[,1]
 commat<-commat[,-1]
-InvSumA$Shannon<-diversity(commat)
-InvSumA$TotalN<-rowSums(commat)
+InvSumA$Shannon<-diversity(commat) #calculate Shannon diversity index
+InvSumA$TotalN<-rowSums(commat) #calculate total, density standardized insects
+#sum all the biomass measures for each TEid
 InvSumB<-ddply(InvTotalBM,.variables=c("TEid"),.fun=function(x) data.frame(TotalBM.mg=sum(x$Sum.mg),
-                                                                           BMDensity.mgpm2=sum(x$Density)))
+                                                                           BMDensity.mgpm2=sum(x$BMDensity)))
 InvSum<-merge(InvSumA,InvSumB, by="TEid")
 colnames(InvSum)[2]<-"richness"
-InvSum$Enc<-Inv[match(InvSum$TEid,Inv$TEid),6]
-InvSum$Week<-Inv[match(InvSum$TEid,Inv$TEid),7]
-InvSum$Treatment<-Treat[match(InvSum$Enc, Treat$Enclosure2), 3]
+InvSum[,7:11]<-Inv[match(InvSum$TEid, Inv$TEid), c("Enc","Week","Treatment","Type","Spp")]
 InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
 InvSum$Density.npm<-InvSum$TotalN/(InvSum$basketn*.03315)
 InvSum$Enclosure<-Treat[match(InvSum$Enc, Treat$Enclosure2),1]
 
-InvSum[InvSum$Treatment=="AMBL","Type"]<-"Live"
-InvSum[InvSum$Treatment=="ACTL","Type"]<-"Live"
-InvSum[InvSum$Treatment=="AMBS","Type"]<-"Sham"
-InvSum[InvSum$Treatment=="ACTS","Type"]<-"Sham"
-InvSum[InvSum$Treatment=="CTRL","Type"]<-"Ctrl"
-InvSum[InvSum$Treatment=="AMBL","Spp"]<-"AMB"
-InvSum[InvSum$Treatment=="ACTL","Spp"]<-"ACT"
-InvSum[InvSum$Treatment=="AMBS","Spp"]<-"AMB"
-InvSum[InvSum$Treatment=="ACTS","Spp"]<-"ACT"
-InvSum[InvSum$Treatment=="CTRL","Spp"]<-"Ctrl"
-InvSum$Type<-factor(InvSum$Type, levels=c("Live","Sham","Ctrl", ordered=T))
-
+####testing CLEANME ####
 test<-InvGraph %>% group_by(TEid)%>%filter(T.Trop==2) %>%
   mutate(CFiltDen=sum(Density.npm))
 InvSum$CFiltDen<-test[match(InvSum$TEid, test$TEid), "CFiltDen"]
@@ -239,11 +342,11 @@ InvSum[is.na(InvSum$CFiltDen),"CFiltDen"]<-0
 InvSum$CFiltDen<-unlist(InvSum$CFiltDen)
 mathss<-as.data.frame(InvSum)
 
-
 testing<-aov(CFiltDen~Type, data=mathss)
 summary(testing)
 plot(testing)
 TukeyHSD(testing)
+
 library(lsmeans)
 leastm<-lsmeans(testing, "Type",adjust="tukey")
 cld(leastm, alpha=.05, Letters=letters)
@@ -295,44 +398,151 @@ ggplot(data = ComGraph, aes(x = sites, y = value, fill = Trop)) +
         axis.line.y=element_line(colour="black"))+
   facet_grid(Type~., space="free", scales="free")
 
-library(wesanderson)
-colors<-c(wes_palette("Zissou")[c(1,3,5)])
-colors<-c("#3B9AB2","#EBCC2A","#F21A00")
-ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2, color=Type))+
+ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2, color=Treatment))+
   geom_point(cex=5)+ylim(0,max(InvSum$BMDensity.mgpm2))+
-  ylab("Biomass Density (mg/m sq.)")+
-  scale_color_manual(values=colors)+stat_summary(color="black")+
+  ylab(expression(Biomass~Density~~mg/m^{2}))+
+  scale_color_manual(values=CP[c(3,1,2,5,4)])+
+  stat_summary(color="black")+
   fungraph
+ggsave("./Figures/BMDensity.tiff")
 
-
+#####NMDS analysis####
+#plotting advice from Christopher Chizinski GitHub
 library(vegan)
-nmds<-metaMDS(commat)
-plot(nmds, display = c("sites", "species"), choices = c(1, 2),
-     type = "n", shrink = FALSE)
-points(nmds, display = c("sites", "species"),
-       choices = c(1,2), shrink = FALSE)
-## S3 method for class 'metaMDS'
-text(nmds, display = c( "species"), labels=colnames(commat), 
-     choices = c(1,2), cex=.5)
-text(nmds, display = c( "sites"), labels=rownames(commat), 
-     choices = c(1,2), cex=1, col="red")
+nmds<-metaMDS(commat[-51,-1])
+data.scores <- as.data.frame(scores(nmds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+data.scores$site <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
+data.scores$grp <- Inv[match(data.scores$site, Inv$TEid), "Treatment"]  #  add the grp variable created earlier
+head(data.scores)  #look at the data
+
+species.scores <- as.data.frame(scores(nmds, "species"))  #Using the scores function from vegan to extract the species scores and convert to a data.frame
+species.scores$species <- rownames(species.scores)  # create a column of species, from the rownames of species.scores
+head(species.scores)  #look at the data
+
+grp.a <- data.scores[data.scores$grp == "CTRL", ][chull(data.scores[data.scores$grp == 
+                                                                   "CTRL", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
+grp.b <- data.scores[data.scores$grp == "ACTL", ][chull(data.scores[data.scores$grp == 
+                                                                   "ACTL", c("NMDS1", "NMDS2")]), ]  # hull values for grp B
+grp.c <- data.scores[data.scores$grp == "ACTS", ][chull(data.scores[data.scores$grp == 
+                                                                    "ACTS", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
+grp.d <- data.scores[data.scores$grp == "AMBL", ][chull(data.scores[data.scores$grp == 
+                                                                    "AMBL", c("NMDS1", "NMDS2")]), ]  # hull values for grp B
+grp.e <- data.scores[data.scores$grp == "AMBS", ][chull(data.scores[data.scores$grp == 
+                                                                    "AMBS", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
+hull.data <- rbind(grp.a, grp.b, grp.c, grp.d, grp.e)  #combine grp.a and grp.b
+
+ggplot() + 
+  geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=grp,group=grp),alpha=0.20) + # add the convex hulls
+  geom_text(data=species.scores,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5, size=2) +  # add the species labels
+  geom_point(data=data.scores,aes(x=NMDS1,y=NMDS2,shape=grp,colour=grp),size=4) + # add the point markers
+  scale_colour_manual(values=CP[c(3,1,2,5,4)]) +
+  scale_fill_manual(values=CP[c(3,1,2,5,4)])+
+  coord_equal() +
+  theme_bw() + 
+  theme(axis.text.x = element_blank(),  # remove x-axis text
+        axis.text.y = element_blank(), # remove y-axis text
+        axis.ticks = element_blank(),  # remove axis ticks
+        axis.title.x = element_text(size=18), # remove x-axis labels
+        axis.title.y = element_text(size=18), # remove y-axis labels
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  #remove major-grid labels
+        panel.grid.minor = element_blank(),  #remove minor-grid labels
+        plot.background = element_blank())
+ggsave("./Figures/NMDSwhole.png")
+
+colSums(commat[-51,-1])
+ComThin<-commat[-51,colSums(commat[-51,])>5]
+
+nmds<-metaMDS(ComThin)
+data.scores <- as.data.frame(scores(nmds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+data.scores$site <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
+data.scores$grp <- Inv[match(data.scores$site, Inv$TEid), "Treatment"]  #  add the grp variable created earlier
+head(data.scores)  #look at the data
+
+species.scores <- as.data.frame(scores(nmds, "species"))  #Using the scores function from vegan to extract the species scores and convert to a data.frame
+species.scores$species <- rownames(species.scores)  # create a column of species, from the rownames of species.scores
+head(species.scores)  #look at the data
+
+grp.a <- data.scores[data.scores$grp == "CTRL", ][chull(data.scores[data.scores$grp == 
+                                                                      "CTRL", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
+grp.b <- data.scores[data.scores$grp == "ACTL", ][chull(data.scores[data.scores$grp == 
+                                                                      "ACTL", c("NMDS1", "NMDS2")]), ]  # hull values for grp B
+grp.c <- data.scores[data.scores$grp == "ACTS", ][chull(data.scores[data.scores$grp == 
+                                                                      "ACTS", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
+grp.d <- data.scores[data.scores$grp == "AMBL", ][chull(data.scores[data.scores$grp == 
+                                                                      "AMBL", c("NMDS1", "NMDS2")]), ]  # hull values for grp B
+grp.e <- data.scores[data.scores$grp == "AMBS", ][chull(data.scores[data.scores$grp == 
+                                                                      "AMBS", c("NMDS1", "NMDS2")]), ]  # hull values for grp A
+hull.data <- rbind(grp.a, grp.b, grp.c, grp.d, grp.e)  #combine grp.a and grp.b
+hull.data
+
+ggplot() + 
+  geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=grp,group=grp),alpha=0.20) + # add the convex hulls
+  geom_text(data=species.scores,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5, size=2) +  # add the species labels
+  geom_point(data=data.scores,aes(x=NMDS1,y=NMDS2,shape=grp,colour=grp),size=4) + # add the point markers
+  scale_colour_manual(values=CP[c(3,1,2,5,4)]) +
+  scale_fill_manual(values=CP[c(3,1,2,5,4)])+
+  coord_equal() +
+  theme_bw() + 
+  theme(axis.text.x = element_blank(),  # remove x-axis text
+        axis.text.y = element_blank(), # remove y-axis text
+        axis.ticks = element_blank(),  # remove axis ticks
+        axis.title.x = element_text(size=18), # remove x-axis labels
+        axis.title.y = element_text(size=18), # remove y-axis labels
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  #remove major-grid labels
+        panel.grid.minor = element_blank(),  #remove minor-grid labels
+        plot.background = element_blank())
+ggsave("./Figures/NmdsThin.png")
+
+head(DataEX)
+pts<-envfit(nmds,AllmodelD[,c(9:11,13:16)], na.rm=T)
+pts.df<-as.data.frame(pts$vectors$arrows*sqrt(pts$vectors$r))
+pts.df$species<-rownames(pts.df)
+
+ggplot() + 
+  geom_polygon(data=hull.data,aes(x=NMDS1,y=NMDS2,fill=grp,group=grp),alpha=0.20) + # add the convex hulls
+  geom_text(data=species.scores,aes(x=NMDS1,y=NMDS2,label=species),alpha=0.5, size=2) +  # add the species labels
+  geom_point(data=data.scores,aes(x=NMDS1,y=NMDS2,shape=grp,colour=grp),size=2) + # add the point markers
+  geom_segment(data=pts.df,aes(x=0,xend=NMDS1,y=0,yend=NMDS2),
+               arrow = arrow(length = unit(0.5, "cm")),colour="grey") + 
+  geom_text(data=pts.df,aes(x=NMDS1,y=NMDS2,label=species),size=5) +
+  scale_colour_manual(values=CP[c(3,1,2,5,4)]) +
+  scale_fill_manual(values=CP[c(3,1,2,5,4)])+
+  coord_equal() +
+  theme_bw() + 
+  theme(axis.text.x = element_blank(),  # remove x-axis text
+        axis.text.y = element_blank(), # remove y-axis text
+        axis.ticks = element_blank(),  # remove axis ticks
+        axis.title.x = element_text(size=18), # remove x-axis labels
+        axis.title.y = element_text(size=18), # remove y-axis labels
+        panel.background = element_blank(), 
+        panel.grid.major = element_blank(),  #remove major-grid labels
+        panel.grid.minor = element_blank(),  #remove minor-grid labels
+        plot.background = element_blank())
+ggsave("./Figures/nmdschar.png")
+
+EnclosureRaster$funORD<-funNMDS1[match(EnclosureRaster$enc, rownames(funNMDS1)),1]
+plot(EnclosureRaster["funORD"])
+text(cc[,1],cc[,2],zc)
+
 
 ##### Functional Diversity Analysis #####
 trait<-TaxaList[,-c(1:4,10,11)]
 rownames(trait)<-TaxaList[,1]
 ordtrait<-trait[order(rownames(trait),decreasing=F),]
-trait1<-ordtrait[,c(3,4)]
+trait1<-ordtrait[-c(6,11, 32),c(3,4)]
 
 library(reshape2)
 AbMatrixT<-dcast(Counts, TEid + Treatment ~ Taxa, value.var = "Density.npm")
 AbMatrixT[is.na(AbMatrixT)]<-0
-Abundances<-AbMatrixT[,-c(1,2)]
+Abundances<-AbMatrixT[,-c(1:3)]
 rownames(Abundances)<-AbMatrixT[,1]
 
-rownames(ordtrait)==colnames(Abundances) #need it to be true to run the function
+rownames(trait1)==colnames(Abundances) #need it to be true to run the function
 
 library(FD)
-ex <- dbFD(trait1,Abundances)
+ex <- dbFD(trait1,Abundances[-51,])
 
 FunciGraph<-data.frame(FDis=ex$FDis,
                        FRich=ex$FRic,
@@ -340,18 +550,8 @@ FunciGraph<-data.frame(FDis=ex$FDis,
                        RaoQ=ex$RaoQ)
 FunciGraph$TEid<-rownames(FunciGraph)
 FunciGraph$Treatment<-InvGraph[match(FunciGraph$TEid, InvGraph$TEid),"Treatment"]
-FunciGraph[FunciGraph$Treatment=="AMBL","Type"]<-"Live"
-FunciGraph[FunciGraph$Treatment=="ACTL","Type"]<-"Live"
-FunciGraph[FunciGraph$Treatment=="AMBS","Type"]<-"Sham"
-FunciGraph[FunciGraph$Treatment=="ACTS","Type"]<-"Sham"
-FunciGraph[FunciGraph$Treatment=="CTRL","Type"]<-"Ctrl"
-FunciGraph[FunciGraph$Treatment=="AMBL","Spp"]<-"AMB"
-FunciGraph[FunciGraph$Treatment=="ACTL","Spp"]<-"ACT"
-FunciGraph[FunciGraph$Treatment=="AMBS","Spp"]<-"AMB"
-FunciGraph[FunciGraph$Treatment=="ACTS","Spp"]<-"ACT"
-FunciGraph[FunciGraph$Treatment=="C?ATRL","Spp"]<-"Ctrl"
-FunciGraph$Treatment<-factor(FunciGraph$Treatment, c("ACTL","ACTS","AMBL","AMBS","CTRL"))
-FunciGraph$Type<-factor(FunciGraph$Type, c("Live","Sham","Ctrl"))
+FunciGraph[,c("Type","Spp")]<-treattype[match(FunciGraph$Treatment, treattype$Treatment),c("Type","Spp")]
+
 
 fit <- aov(FDis ~ Type, data=FunciGraph)
 summary(fit)
@@ -360,13 +560,29 @@ TukeyHSD(fit)
 leastm<-lsmeans(fit, "Type",adjust="tukey")
 cld(leastm, alpha=.05, Letters=letters)
 
-
-
 mFGraph<-melt(FunciGraph)
 
 ggplot(mFGraph, aes(x=Type, y=value, fill=Treatment))+geom_boxplot()+
   facet_wrap(~variable, scales = "free")+
-  scale_fill_brewer(palette = "Paired")+fungraph
+  scale_fill_manual(values)+fungraph
+ggsave("./Figures/AllFunctionInd.tiff")
+
+ggplot(mFGraph[mFGraph$variable=="FDis",], 
+       aes(x=Type, y=value, fill=Treatment))+geom_boxplot()+
+  scale_fill_manual(values=CP[c(3,1,2,5,4)])+
+  labs(y="Functional Distance")+theme_bw() +  
+  theme(axis.text.x=element_text(angle = 0,size=12,color="black"), 
+              axis.text.y = element_text(size=12,color="black"),
+              axis.title.y=element_text(size=20),
+              title=element_text(size=20),
+              panel.background = element_rect(fill = "white"),
+              legend.key=element_rect(colour=NA), 
+              axis.line.x=element_line(colour="black"),
+              axis.line.y=element_line(colour="black"),
+              strip.background=element_rect(fill="white", color="black"),
+              strip.text=element_text(size=15))
+ggsave("./Figures/FunctionalDis.tiff")
+
 
 ModelData<-merge(InvSum, FunciGraph, by=c("TEid","Treatment","Type","Spp"))
 ModelData$depth<-EncDV[match(ModelData$Enclosure, EncDV$ï..Enclosure), "Depth.m"]
@@ -414,24 +630,8 @@ postHocs<-glht(mod9, linfct=mcp(Type="Tukey"))
 summary(postHocs)
 
 
-##NMDS
-DenC<-dcast(Counts[,-c(2,4,5,6,7,8,9)], Enc~...)
-DenC[is.na(DenC)]<-0
-rownames(DenC)<-DenC[,1]
-DenC<-DenC[,-1]
-comNMDS<-metaMDS(DenC)
-plot(comNMDS, type="t")
-library(tidyverse)
-library(plyr)
-Fcom<-ddply(InvGraph, .variables = c("Enc","FFG"), .fun = function(x){sum(x$Density.npb)})
-FunC<-dcast(Fcom, Enc~FFG)
-FunC[is.na(FunC)]<-0
-rownames(FunC)<-FunC[,1]
-FunC<-FunC[,-1]
-funNMDS<-metaMDS(FunC)
-plot(funNMDS, type="t")
-funNMDS1<-funNMDS$points
 
-EnclosureRaster$funORD<-funNMDS1[match(EnclosureRaster$enc, rownames(funNMDS1)),1]
-plot(EnclosureRaster["funORD"])
-text(cc[,1],cc[,2],zc)
+
+install.packages("DecomposingFD")
+library("DecomposingFD")
+
