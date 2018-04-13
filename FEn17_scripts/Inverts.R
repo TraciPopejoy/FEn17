@@ -35,18 +35,29 @@ Counts<-ddply(Inv, .variables = c("TEid","Taxa"), .fun=function(x) {
 
 Counts$Family<-as.character(TaxaList$Family[match(Counts$Taxa,TaxaList$Taxa)])
 Counts$Order<-as.character(TaxaList$Order[match(Counts$Taxa,TaxaList$Taxa)])
+Counts<-Counts[-743,]
 
 #converting to density to compensate for different sampling effort
 head(SlurryData) #found in Slurry Analysis sheet
 Counts$Density.npm<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5]*.03315)
+Counts$Density.npb<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5])
 
 
-ggplot(data=Counts, aes(x=Treatment, y=log10(Density.npm), color=Order)) + geom_point(cex=4)
+ggplot(data=Counts, aes(x=Treatment, y=Density.npm, color=Order)) + 
+  geom_point(position="jitter") +
+  scale_y_log10()
 
 #############     Field Invert Biomass Calculation     #############
 Inv$Family<-as.character(TaxaList$Family[match(Inv$Taxa,TaxaList$Taxa)])
 Inv$Order<-as.character(TaxaList$Order[match(Inv$Taxa,TaxaList$Taxa)])
 Inv$Length<-Inv$Length.cm*10
+
+Inv$FFG<-InvGraph[match(Inv$Taxa, InvGraph$Taxa), "FFG"]
+Inv$Type<-InvGraph[match(Inv$Treatment, InvGraph$Treatment), "Type"]
+
+ggplot(Inv[!is.na(Inv$Treatment),], 
+       aes(x=FFG, y=Length))+
+  geom_violin()+scale_y_sqrt()+facet_wrap(~Type)+fungraph
 
 #removing taxa that give me trouble 
 InvA<-Inv[!Inv$Order=="misc",]
@@ -93,15 +104,15 @@ InvTotalBM<-ddply(InvBM, .var=c("TEid", "Taxa"),
                                               mean.length=mean(x$length, na.rm=T)
                                               )}) 
 
-ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=log10(Sum.mg), color=Treatment))+
-  geom_point()+coord_flip()
+ggplot(na.omit(InvTotalBM), aes(x=Taxa, y=Sum.mg, color=Treatment))+
+  geom_point()+coord_flip()+scale_y_log10()
 
 #converting mean biomass to biomass/meter
 InvTotalBM$Density<-InvTotalBM$Sum.mg/(SlurryData[match(InvTotalBM$TEid, SlurryData$TEid),5]*.03315)
 
 ###would use density because sampling was not constant (not always full basket recovery)
 InvGraph<-merge(InvTotalBM[,-c(4,5)],Counts, by=c("TEid","Taxa","Treatment","Enc","Week"))
-InvGraph<-merge(InvGraph, TaxaList[,c(1,5:9)], by="Taxa")
+InvGraph<-merge(InvGraph, TaxaList[,c(1,2,5:9)], by="Taxa")
 InvGraph[InvGraph$Treatment=="AMBL","Type"]<-"Live"
 InvGraph[InvGraph$Treatment=="ACTL","Type"]<-"Live"
 InvGraph[InvGraph$Treatment=="AMBS","Type"]<-"Sham"
@@ -113,34 +124,33 @@ InvGraph[InvGraph$Treatment=="AMBS","Spp"]<-"AMB"
 InvGraph[InvGraph$Treatment=="ACTS","Spp"]<-"ACT"
 InvGraph[InvGraph$Treatment=="CTRL","Spp"]<-"Ctrl"
 InvGraph$Type<-factor(InvGraph$Type, levels=c("Live","Sham","Ctrl", ordered=T))
-
-InvGraph<-InvGraph[InvGraph$Taxa!= "Tri.Leptoceridae",]
-InvGraph<-InvGraph[InvGraph$Taxa!= "Dip.Other",]
+InvGraph$Treatment<-factor(InvGraph$Treatment, levels=c("ACTL","ACTS","AMBL","AMBS","CTRL"))
 TropTable<-data.frame(TropN=seq(1:6),
                       FFG=c("C-Gatherer","C-Filterer",
                             "Herbivore","Predator","Shredder","Parasite"))
 InvGraph$FFG<-TropTable[match(InvGraph$T.Trop, TropTable$TropN),2]
 
+fungraph<-theme(axis.text.x=element_text(angle = 90,size=12,color="black"),
+      axis.text.y = element_text(size=12,color="black"),
+      axis.title.y=element_text(size=20),
+      plot.background = element_blank(),
+      panel.border=element_blank(),
+      panel.grid.major= element_line(colour=NA), 
+      panel.grid.minor=element_line(colour=NA),
+      title=element_text(size=20),
+      panel.background = element_rect(fill = "white"),
+      axis.line.x=element_line(colour="black"),
+      axis.line.y=element_line(colour="black"),
+      strip.background=element_rect(fill="white", color="black"),
+      strip.text=element_text(size=15))
+
 ggplot(InvGraph, 
-       aes(x=FFG, y=mean.length, color=FFG))+
-  #scale_y_log10() +
-  #geom_boxplot()+
-  geom_point(aes(Density.npm), position="jitter")+
-  ylab("Density n / metersq.")+xlab("Functional Feeding Group")+theme_bw()+
-  theme(axis.text.x=element_text(angle = -90,size=12,color="black"),
-        axis.text.y = element_text(size=12,color="black"),
-        axis.title.y=element_text(size=20),
-        plot.background = element_blank(),
-        panel.border=element_blank(),
-        panel.grid.major= element_line(colour=NA), 
-        panel.grid.minor=element_line(colour=NA),
-        title=element_text(size=20),
-        panel.background = element_rect(fill = "white"),
-        axis.line.x=element_line(colour="black"),
-        axis.line.y=element_line(colour="black"),
-        strip.background=element_rect(fill="white", color="black"),
-        strip.text=element_text(size=15))+
-  facet_grid(.~Treatment, space="free", scales = "free")
+       aes(x=FFG, y=mean.length, color=Treatment))+
+  scale_y_sqrt() +
+  geom_point(aes(size=Density.npm), alpha=.5, position="jitter")+
+  ylab("Mean Length (mm)")+xlab("Functional Feeding Group")+
+  facet_grid(.~Type, space="free", scales = "free")+fungraph
+
 
 ggplot(InvGraph, 
        aes(x=Order, y=Density.npm, fill=T.Trop))+
@@ -154,6 +164,42 @@ ggplot(na.omit(InvGraph),
   geom_boxplot()+
   facet_wrap(~Type)+theme_classic()
 
+sizegraph<-merge(InvB, TaxaList)
+sizegraph$Type<-InvGraph[match(sizegraph$Treatment, InvGraph$Treatment), "Type"]
+ggplot(sizegraph[sizegraph$T.Trop==2,], aes(x=Treatment, y=Length))+
+  geom_violin()+facet_wrap(~Type, scales="free")
+
+ggplot(InvGraph, 
+       aes(x=Type, y=mean.length))+
+  scale_y_sqrt() + geom_violin(aes(fill=Treatment))+
+  geom_boxplot(alpha=.3, aes(group=Treatment))+
+  #geom_point(aes(size=Density.npb), alpha=.3)+
+  ylab("Mean Length (mm)")+xlab("Functional Feeding Group")+
+  facet_grid(.~FFG, space="free", scales = "free")+fungraph+
+  scale_fill_brewer(palette="Paired")
+
+ggplot(InvGraph, 
+       aes(x=Type, y=Density.npm, fill=Treatment))+
+  scale_y_log10() +
+  geom_boxplot()+
+  ylab("Density (n/meter.sq)")+xlab("Treatments")+
+  facet_grid(.~FFG, space="free", scales = "free")+
+  scale_fill_brewer(palette="Paired")+fungraph
+
+(p1<-ggplot(InvGraph[InvGraph$T.Trop==2,], 
+       aes(x=Type, y=Density.npm, fill=Treatment))+
+  geom_boxplot()+
+  ylab("Density (n/meter.sq)")+xlab("Treatments")+ylim(c(0,160))+
+  facet_grid(.~FFG, space="free", scales = "free")+
+  scale_fill_brewer(palette="Paired")+fungraph)
+
+(p2<-ggplot(InvGraph[InvGraph$T.Trop==2,], 
+       aes(x=Type, y=mean.length, fill=Treatment))+
+  geom_boxplot()+
+  ylab("Mean Length (mm)")+xlab("Treatments")+
+  facet_grid(.~FFG, space="free", scales = "free")+
+  scale_fill_brewer(palette="Paired")+fungraph)
+grid.arrange(p1,p2,ncol=2)
 
 ###Total Summary of Data####
 InvSumA<-ddply(Counts,.variables=c("TEid"),.fun=function(x) {count(x,x[1,1])[,2]})
@@ -186,7 +232,40 @@ InvSum[InvSum$Treatment=="ACTS","Spp"]<-"ACT"
 InvSum[InvSum$Treatment=="CTRL","Spp"]<-"Ctrl"
 InvSum$Type<-factor(InvSum$Type, levels=c("Live","Sham","Ctrl", ordered=T))
 
+test<-InvGraph %>% group_by(TEid)%>%filter(T.Trop==2) %>%
+  mutate(CFiltDen=sum(Density.npm))
+InvSum$CFiltDen<-test[match(InvSum$TEid, test$TEid), "CFiltDen"]
+InvSum[is.na(InvSum$CFiltDen),"CFiltDen"]<-0
+InvSum$CFiltDen<-unlist(InvSum$CFiltDen)
+mathss<-as.data.frame(InvSum)
+
+
+testing<-aov(CFiltDen~Type, data=mathss)
+summary(testing)
+plot(testing)
+TukeyHSD(testing)
+library(lsmeans)
+leastm<-lsmeans(testing, "Type",adjust="tukey")
+cld(leastm, alpha=.05, Letters=letters)
+
+test<-InvGraph %>% group_by(TEid)%>%filter(T.Trop==2) %>%
+  mutate(CFiltBM=mean(mean.length))
+InvSum$CFiltBM<-test[match(InvSum$TEid, test$TEid), "CFiltBM"]
+InvSum[is.na(InvSum$CFiltBM),"CFiltBM"]<-0
+InvSum$CFiltBM<-unlist(InvSum$CFiltBM)
+mathss2<-as.data.frame(InvSum)
+
+testing<-aov(CFiltBM~Type, data=mathss2)
+summary(testing)
+plot(testing)
+TukeyHSD(testing)
+library(lsmeans)
+leastm<-lsmeans(testing, "Type",adjust="tukey")
+cld(leastm, alpha=.05, Letters=letters)
+
+
 write.csv(InvSum, "FEn17week12insects.csv")
+
 
 RAcommat<-commat/rowSums(commat)
 RAcommat$sites<-rownames(RAcommat)
@@ -223,7 +302,8 @@ ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2, color=Type))+
   geom_point(cex=5)+ylim(0,max(InvSum$BMDensity.mgpm2))+
   ylab("Biomass Density (mg/m sq.)")+
   scale_color_manual(values=colors)+stat_summary(color="black")+
-  theme_light()
+  fungraph
+
 
 library(vegan)
 nmds<-metaMDS(commat)
@@ -242,7 +322,6 @@ trait<-TaxaList[,-c(1:4,10,11)]
 rownames(trait)<-TaxaList[,1]
 ordtrait<-trait[order(rownames(trait),decreasing=F),]
 trait1<-ordtrait[,c(3,4)]
-trait2<-as.matrix(trait1[-37,])
 
 library(reshape2)
 AbMatrixT<-dcast(Counts, TEid + Treatment ~ Taxa, value.var = "Density.npm")
@@ -250,14 +329,10 @@ AbMatrixT[is.na(AbMatrixT)]<-0
 Abundances<-AbMatrixT[,-c(1,2)]
 rownames(Abundances)<-AbMatrixT[,1]
 
-rownames(ordtrait)==colnames(Abundances[,-29]) #need it to be true to run the function
-Abundances1<-Abundances[,-29] #Isopoda.miscI not in trait table
-Abundances2<-Abundances1[,-37] #bad traits for Leptoceridae
-
-rownames(trait2)==colnames(Abundances2)
+rownames(ordtrait)==colnames(Abundances) #need it to be true to run the function
 
 library(FD)
-ex <- dbFD(trait2,Abundances2)
+ex <- dbFD(trait1,Abundances)
 
 FunciGraph<-data.frame(FDis=ex$FDis,
                        FRich=ex$FRic,
@@ -265,13 +340,98 @@ FunciGraph<-data.frame(FDis=ex$FDis,
                        RaoQ=ex$RaoQ)
 FunciGraph$TEid<-rownames(FunciGraph)
 FunciGraph$Treatment<-InvGraph[match(FunciGraph$TEid, InvGraph$TEid),"Treatment"]
+FunciGraph[FunciGraph$Treatment=="AMBL","Type"]<-"Live"
+FunciGraph[FunciGraph$Treatment=="ACTL","Type"]<-"Live"
+FunciGraph[FunciGraph$Treatment=="AMBS","Type"]<-"Sham"
+FunciGraph[FunciGraph$Treatment=="ACTS","Type"]<-"Sham"
+FunciGraph[FunciGraph$Treatment=="CTRL","Type"]<-"Ctrl"
+FunciGraph[FunciGraph$Treatment=="AMBL","Spp"]<-"AMB"
+FunciGraph[FunciGraph$Treatment=="ACTL","Spp"]<-"ACT"
+FunciGraph[FunciGraph$Treatment=="AMBS","Spp"]<-"AMB"
+FunciGraph[FunciGraph$Treatment=="ACTS","Spp"]<-"ACT"
+FunciGraph[FunciGraph$Treatment=="C?ATRL","Spp"]<-"Ctrl"
+FunciGraph$Treatment<-factor(FunciGraph$Treatment, c("ACTL","ACTS","AMBL","AMBS","CTRL"))
+FunciGraph$Type<-factor(FunciGraph$Type, c("Live","Sham","Ctrl"))
 
-fit <- aov(FEven ~ Treatment, data=FunciGraph)
+fit <- aov(FDis ~ Type, data=FunciGraph)
 summary(fit)
 plot(fit)
 TukeyHSD(fit)
+leastm<-lsmeans(fit, "Type",adjust="tukey")
+cld(leastm, alpha=.05, Letters=letters)
+
+
 
 mFGraph<-melt(FunciGraph)
 
-ggplot(mFGraph, aes(x=Treatment, y=value))+geom_boxplot()+
-  facet_wrap(~variable, scales = "free")
+ggplot(mFGraph, aes(x=Type, y=value, fill=Treatment))+geom_boxplot()+
+  facet_wrap(~variable, scales = "free")+
+  scale_fill_brewer(palette = "Paired")+fungraph
+
+ModelData<-merge(InvSum, FunciGraph, by=c("TEid","Treatment","Type","Spp"))
+ModelData$depth<-EncDV[match(ModelData$Enclosure, EncDV$ï..Enclosure), "Depth.m"]
+ModelData$velocity<-EncDV[match(ModelData$Enclosure, EncDV$ï..Enclosure), "V.mps"]
+ModelData$Treatment<-factor(ModelData$Treatment, 
+                            levels=c("ACTL","ACTS","AMBL","AMBS","CTRL"))
+#ModelData$Treatment<-relevel(ModelData$Treatment, ref="CTRL")
+
+library(car)
+library(compute.es)
+library(effects)
+library(multcomp) 
+#Explore the data & check ANOVA assumptions
+
+#Check for homogeneity
+leveneTest(ModelData$FDis, ModelData$Treatment, center=median)
+
+#Check for independence between treatment and covariate 
+testco1<-aov(depth~Treatment, data=ModelData)
+summary(testco1)
+testco2<-aov(depth~Type, data=ModelData)
+summary(testco2)
+testco3<-aov(velocity~Type, data=ModelData)
+summary(testco3)
+#Run the ANCOVA 
+mod8 <- lm(FDis~depth+velocity+Type, data=ModelData)
+Anova(mod8, type="III")
+adjustedMeans<-effect("Type", mod8)
+postHocs<-glht(mod8, linfct=mcp(Type="Tukey"))
+summary(postHocs)
+#Run contrasts/comparisons 
+#Check for homogeneity of regression slopes
+hist(residuals(mod8), col="darkgray")
+plot(fitted(mod8), residuals(mod8))
+
+####MacroAbund####
+leveneTest(ModelData$Density.npm, ModelData$Type, center=median)
+#Check for independence between treatment and covariate 
+
+#Run the ANCOVA 
+mod9 <- lm(Density.npm~depth+Type, data=ModelData)
+Anova(mod9, type="III")
+adjustedMeans<-effect("Type", mod9)
+postHocs<-glht(mod9, linfct=mcp(Type="Tukey"))
+summary(postHocs)
+
+
+##NMDS
+DenC<-dcast(Counts[,-c(2,4,5,6,7,8,9)], Enc~...)
+DenC[is.na(DenC)]<-0
+rownames(DenC)<-DenC[,1]
+DenC<-DenC[,-1]
+comNMDS<-metaMDS(DenC)
+plot(comNMDS, type="t")
+library(tidyverse)
+library(plyr)
+Fcom<-ddply(InvGraph, .variables = c("Enc","FFG"), .fun = function(x){sum(x$Density.npb)})
+FunC<-dcast(Fcom, Enc~FFG)
+FunC[is.na(FunC)]<-0
+rownames(FunC)<-FunC[,1]
+FunC<-FunC[,-1]
+funNMDS<-metaMDS(FunC)
+plot(funNMDS, type="t")
+funNMDS1<-funNMDS$points
+
+EnclosureRaster$funORD<-funNMDS1[match(EnclosureRaster$enc, rownames(funNMDS1)),1]
+plot(EnclosureRaster["funORD"])
+text(cc[,1],cc[,2],zc)

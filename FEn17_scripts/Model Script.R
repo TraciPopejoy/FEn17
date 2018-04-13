@@ -33,8 +33,54 @@ fishbas$Structure<-EncDV[match(fishbas$Enc2, EncDV$Enc2),4]
                
 #adding invertebrate biomass
 head(InvSum) #from Inverts script
-AllmodelD<-merge(fishbas,InvSum, by=c("TEid","Treatment","Week"))
+AllmodelD<-merge(fishbas,ModelData, by=c("TEid","Treatment","Week"), all=T)
+AllmodelD<-AllmodelD[AllmodelD$Week=="w12",]
 
+#Explore the data & check ANOVA assumptions
+#Check for homogeneity
+leveneTest(AllmodelD$Prob...Fish, AllmodelD$Treatment, center=median)
+#Check for independence between treatment and covariate 
+testco1<-aov(depth~Treatment, data=AllmodelD)
+summary(testco1)
+testco2<-aov(depth~Type, data=ModelData)
+summary(testco2)
+testco3<-aov(velocity~Type, data=ModelData)
+summary(testco3)
+#Run the ANCOVA 
+mod1 <- lm(Total.Fish~depth+AFDMg.cm2+BMDensity.gpm2+Type, data=AllmodelD)
+Anova(mod1, type="III")
+adjustedMeans<-effect("Type", mod1)
+postHocs<-glht(mod1, linfct=mcp(Type="Tukey"))
+summary(postHocs)
+#Run contrasts/comparisons 
+#Check for homogeneity of regression slopes
+hist(residuals(mod1), col="darkgray")
+plot(fitted(mod1), residuals(mod1))
+
+AllmodelD$BMDensity.gpm2<-AllmodelD$BMDensity.mgpm2/1000
+trophic<-melt(AllmodelD[,c(1:4,9,11,16,39)])
+
+afdm<-ggplot(trophic[trophic$variable=="AFDMg.cm2",], 
+       aes(x=Treatment, y=value, color=Treatment))+
+  geom_point()+facet_wrap(~variable, shrink=T,scales="free")+
+  ylab("AFDM (g/cm2)")+xlab("")+fungraph+theme(legend.position="none")
+
+depthG<-ggplot(trophic[trophic$variable=="Depth",], 
+             aes(x=Treatment, y=value, color=Treatment))+
+  geom_point()+facet_wrap(~variable, shrink=T,scales="free")+
+  ylab("Enclosure depth (m)")+xlab("")+fungraph+theme(legend.position="none")
+
+fish<-ggplot(trophic[trophic$variable=="Total.Fish",], 
+             aes(x=Treatment, y=value, color=Treatment))+
+  geom_point()+facet_wrap(~variable, shrink=T,scales="free")+
+  ylab("N fish")+xlab("")+fungraph+theme(legend.position="none")
+
+bug<-ggplot(trophic[trophic$variable=="BMDensity.gpm2",], 
+             aes(x=Treatment, y=value, color=Treatment))+
+  geom_point()+facet_wrap(~variable, shrink=T,scales="free")+
+  ylab("Macroinv. Biomass g/m2")+xlab("")+fungraph+theme(legend.position="none")
+
+grid.arrange(depthG,afdm,bug,fish, nrow=1)
 
 ####Note, since merge removes rows that lack data in one of the data sets
 #this is a conservative data set MEANING if data didn't exist for any of these variables
@@ -44,3 +90,5 @@ AllmodelD<-merge(fishbas,InvSum, by=c("TEid","Treatment","Week"))
 #exporting to csv for Garrett
 write.csv(AllmodelD, "preliminarydata.csv")
 write.csv(fishbas, "fish&basal.csv")
+
+ggplot(test[test$ChlA.mg.m2>0,], aes(x=Treatment, y=ChlA.mg.m2))+geom_boxplot()+facet_wrap(~Week)
