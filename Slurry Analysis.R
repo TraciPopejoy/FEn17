@@ -8,7 +8,7 @@ SlurryData[SlurryData$WeekBad=="4",8]<-"w04"
 SlurryData[SlurryData$WeekBad=="12",8]<-"w12"
 colnames(SlurryData)[8]<-"Week"
 #bring in enclosure and treatment data
-Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors = F)
+Treat<-read_excel("./FEn17_data/FEn17OKTreatments.xlsx")
 
 SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),"Enclosure2"]
 SlurryData$TEid<-paste(SlurryData$Week,SlurryData$Enc2, sep="")

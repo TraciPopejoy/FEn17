@@ -8,9 +8,9 @@ library(vegan)
 
 #############     Invert Data in Field Surber Samples    ##############
 #bring in enclosure and treatment data, trait/taxa list, and length weight regressions
-Treat<-read.csv("./FEn17_data/FEn17OKTreatments.csv", sep=",", stringsAsFactors = F) 
-TaxaList<-read.csv("./FEn17_data/TaxaTable.csv", sep=",", stringsAsFactors = F)
-BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1, stringsAsFactors=F)
+Treat<-read.xlsx("./FEn17_data/FEn17OKTreatments.xlsx", sheetIndex = 1) 
+TaxaList<-read.xlsx("./FEn17_data/TaxaTable.xlsx", sheetIndex = 1)
+BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1)
 #THIS IS THE INSECT DATA
 FEn17Inv12<-read.csv("./FEn17_data/FEn17InvMeas.csv", stringsAsFactors = F)
 FEn17Inv12<-FEn17Inv12[FEn17Inv12$Label!="rulerxocc.tif",-c(3:5)]
@@ -21,22 +21,12 @@ FEn17Inv09<-read.csv("./FEn17_data/FEn17w09.csv", stringsAsFactors = F)
 FEn17Inv09<-FEn17Inv09[,-c(3:5,9)]
 FEn17Inv09$Week<-"w09"
 FEn17Inv09$TEid<-paste(FEn17Inv09$Week, FEn17Inv09$Enc, sep="")
-names(FEn17Inv12)[4]<-"Taxa"
-names(FEn17Inv12)[1]<-"Obs"
-names(FEn17Inv09)[2]<-"Label"
 FEn17Inv09<-FEn17Inv09[,c(1:4,7,5,6)]
 Inv<-rbind(FEn17Inv12, FEn17Inv09) #contains every insect identified from baskets
 
 #clean the data frame
-Inv$Treatment<-Treat[match(Inv$Enc, Treat$Enclosure2), "TreatA"]
+Inv[,8:10]<-Treat[match(Inv$Enc, Treat$Enc2), c("TreatA","Type","Spp")]
 sort(unique(Inv$Taxa)) #check to make sure no misspellings
-Inv$Treatment<-factor(Inv$Treatment, c("CTRL","ACTL","ACTS","AMBL","AMBS"))
-###table is wrong
-treattype<-data.frame(Treatment=na.omit(unique(Inv$Treatment)),
-                      Type=factor(c("Live","Sham","Ctrl","Sham","Live"),levels=c("Ctrl","Sham","Live")), 
-                      Spp=factor(c("ACT","ACT","Ctrl","AMB","AMB"), levels=c("Ctrl","AMB","ACT")))
-Inv$Type<-treattype[match(Inv$Treatment, treattype$Treatment),"Type"]
-Inv$Spp<-treattype[match(Inv$Treatment,treattype$Treatment),"Spp"]
 Inv$Family<-as.character(TaxaList$Family[match(Inv$Taxa,TaxaList$Taxa)])
 Inv$Order<-as.character(TaxaList$Order[match(Inv$Taxa,TaxaList$Taxa)])
 Inv$Length<-Inv$Length.cm*10
@@ -79,7 +69,7 @@ InvBM<-ddply(.data=InvB, .var=c("Taxa"), .fun=function(x) {
   }
   #which regressions were actually built for insects this size
   ldply(lapply(1:dim(x)[[1]],FUN=function(i) { 
-    idx2<- c(x$Length[i]>=plcoeffs[,19] & x$Length[i]<=plcoeffs[,20]) 
+    idx2<-c(x$Length[i]>=plcoeffs[,19] & x$Length[i]<=plcoeffs[,20]) 
     idx2[is.na(idx2)]<-T #if no size range listed, use the regression anyways
     d1<-plcoeffs[idx2,]
     indmassest<-d1$a*(x$Length[i]^d1$b) #power law to determine biomass
@@ -87,7 +77,7 @@ InvBM<-ddply(.data=InvB, .var=c("Taxa"), .fun=function(x) {
       TEid=x$TEid[i],
       Enc=x$Enc[i],
       Week=x$Week[i],
-      Treatment=x$Treatment[i],
+      Treatment=x$TreatA[i],
       length=x$Length[i],
       neq=length(idx2), #number of possible equations used
       ninR=sum(idx2), #number of equations used
@@ -118,16 +108,13 @@ InvTotalBM$BMDensity<-InvTotalBM$Sum.mg/(SlurryData[match(InvTotalBM$TEid, Slurr
 #get each taxa and teid with counts and biomass, and density of both
 InvGraph<-merge(InvTotalBM[,-c(4,5)],Counts, by=c("TEid","Taxa","Treatment","Enc","Week"))
 #get traits into the graph
-InvGraph<-merge(InvGraph, TaxaList[,c(1,2,5:9)], by=c("Taxa", "Family"))
-InvGraph$Type<-treattype[match(InvGraph$Treatment, treattype$Treatment),"Type"]
-InvGraph$Spp<-treattype[match(InvGraph$Treatment, treattype$Treatment),"Spp"]
-TropTable<-data.frame(TropN=seq(1:6),
-                      FFG=c("C-Gatherer","C-Filterer",
-                            "Herbivore","Predator","Shredder","Parasite"))
-InvGraph$FFG<-TropTable[match(InvGraph$T.TropP, TropTable$TropN),2]
+InvGraph<-merge(InvGraph, TaxaList[,c(1,2,5:25)], by=c("Taxa", "Family"))
+InvGraph[,36:37]<-Treat[match(InvGraph$Enc, Treat$Enc2), c("Type","Spp")]
+TraitDef<-read.xlsx("./FEn17_data/TaxaTable.xlsx",sheetIndex = 2)
+trophic<-TraitDef[TraitDef$Trait=="T.TropP",]
+InvGraph$FFGp<-trophic[match(InvGraph$T.TropP, trophic$Num),"T.state"]
 
 #### graph city ####
-
 fungraph<-theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust=1),
                 axis.text.y = element_text(size=12,color="black"),
                 axis.title.y=element_text(size=20),
@@ -145,18 +132,18 @@ fungraph<-theme(axis.text.x=element_text(angle = 35,size=12,color="black", hjust
 library(colorspace)
 CP<-diverge_hcl(5, h=c(180,70), c = 100, l = c(50, 90), power = 1)
 CP[3]<-"black"
-CP2<-data.frame(colorss=CP[c(3,1,2,5,4)], Treat=unique(Traitplot$Treatment))
+CP2<-data.frame(colorss=CP[c(1,2,5,4)], Treat=unique(Treat$TreatA))
 
-Traitplot<-InvGraph %>% group_by(Treatment,Family,FFG) %>% summarize(meanDenMeter=mean(Density.npm),
+Traitplot<-InvGraph %>% group_by(Treatment,Family,FFGp) %>% summarize(meanDenMeter=mean(Density.npm),
                                                                       meansize=mean(mean.length),
                                                                       meanDenBask=mean(Density.npb))
-Traitplot$Type<-treattype[match(Traitplot$Treatment, treattype$Treatment), "Type"]
+Traitplot$Type<-Treat[match(Traitplot$Treatment, Treat$Treatment), "Type"]
 
 file<-c("1.tiff","2.tiff","3.tiff","4.tiff","5.tiff")
 
 for(i in 1:length(unique(Traitplot$Treatment))){
   ggplot(Traitplot, 
-         aes(x=FFG, y=meansize, color=Treatment))+
+         aes(x=FFGp, y=meansize, color=Treatment))+
     geom_point(data=subset(Traitplot, 
                            Treatment==c(paste(unique(Traitplot$Treatment)[i]))),
       aes(size=sqrt(meanDenMeter)), position=position_dodge(width=.1))+
@@ -329,13 +316,13 @@ InvSumB<-ddply(InvTotalBM,.variables=c("TEid"),.fun=function(x) data.frame(Total
                                                                            BMDensity.mgpm2=sum(x$BMDensity)))
 InvSum<-merge(InvSumA,InvSumB, by="TEid")
 colnames(InvSum)[2]<-"richness"
-InvSum[,7:11]<-Inv[match(InvSum$TEid, Inv$TEid), c("Enc","Week","Treatment","Type","Spp")]
+InvSum[,7:11]<-Inv[match(InvSum$TEid, Inv$TEid), c("Enc","Week","TreatA","Type","Spp")]
 InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
 InvSum$Density.npm<-InvSum$TotalN/(InvSum$basketn*.03315)
 InvSum$Enclosure<-Treat[match(InvSum$Enc, Treat$Enclosure2),1]
 
 ####testing CLEANME ####
-test<-InvGraph %>% group_by(TEid)%>%filter(T.Trop==2) %>%
+test<-InvGraph %>% group_by(TEid)%>%filter(T.TropP==2) %>%
   mutate(CFiltDen=sum(Density.npm))
 InvSum$CFiltDen<-test[match(InvSum$TEid, test$TEid), "CFiltDen"]
 InvSum[is.na(InvSum$CFiltDen),"CFiltDen"]<-0
@@ -351,7 +338,7 @@ library(lsmeans)
 leastm<-lsmeans(testing, "Type",adjust="tukey")
 cld(leastm, alpha=.05, Letters=letters)
 
-test<-InvGraph %>% group_by(TEid)%>%filter(T.Trop==2) %>%
+test<-InvGraph %>% group_by(TEid)%>%filter(T.TropP==2) %>%
   mutate(CFiltBM=mean(mean.length))
 InvSum$CFiltBM<-test[match(InvSum$TEid, test$TEid), "CFiltBM"]
 InvSum[is.na(InvSum$CFiltBM),"CFiltBM"]<-0
@@ -362,7 +349,6 @@ testing<-aov(CFiltBM~Type, data=mathss2)
 summary(testing)
 plot(testing)
 TukeyHSD(testing)
-library(lsmeans)
 leastm<-lsmeans(testing, "Type",adjust="tukey")
 cld(leastm, alpha=.05, Letters=letters)
 
@@ -381,27 +367,12 @@ commat1<-commat
 commat1$sites<-rownames(commat1)
 commat1$Type<-InvSum[match(commat1$sites, InvSum$TEid),12]
 commat2<-melt(commat1)
-commat2$Trop<-TaxaList[match(commat2$variable, TaxaList$Taxa),"T.Trop"]
+commat2$Trop<-TaxaList[match(commat2$variable, TaxaList$Taxa),"T.TropP"]
 
-ggplot(data = ComGraph, aes(x = sites, y = value, fill = Trop)) + 
-  geom_bar(stat="identity") + coord_flip()+
-  labs(x="Sites", y="Relative Abundance") +
-  theme(axis.text.x = element_text(size=9,color="black"),
-        axis.title.y=element_text(size=20),
-        plot.background = element_blank(),
-        panel.border=element_blank(),
-        panel.grid.major= element_line(colour=NA), 
-        panel.grid.minor=element_line(colour=NA),
-        title=element_text(size=20),
-        panel.background = element_rect(fill = "white"),
-        axis.line.x=element_line(colour="black"),
-        axis.line.y=element_line(colour="black"))+
-  facet_grid(Type~., space="free", scales="free")
-
-ggplot(InvSum, aes(x=Treatment, y=BMDensity.mgpm2, color=Treatment))+
+ggplot(InvSum, aes(x=TreatA, y=BMDensity.mgpm2, color=TreatA))+
   geom_point(cex=5)+ylim(0,max(InvSum$BMDensity.mgpm2))+
   ylab(expression(Biomass~Density~~mg/m^{2}))+
-  scale_color_manual(values=CP[c(3,1,2,5,4)])+
+  scale_color_manual(values=CP[c(1,2,5,4,3)])+
   stat_summary(color="black")+
   fungraph
 ggsave("./Figures/BMDensity.tiff")
@@ -412,7 +383,7 @@ library(vegan)
 nmds<-metaMDS(commat[-51,-1])
 data.scores <- as.data.frame(scores(nmds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
 data.scores$site <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
-data.scores$grp <- Inv[match(data.scores$site, Inv$TEid), "Treatment"]  #  add the grp variable created earlier
+data.scores$grp <- Inv[match(data.scores$site, Inv$TEid), "TreatA"]  #  add the grp variable created earlier
 head(data.scores)  #look at the data
 
 species.scores <- as.data.frame(scores(nmds, "species"))  #Using the scores function from vegan to extract the species scores and convert to a data.frame
@@ -456,7 +427,7 @@ ComThin<-commat[-51,colSums(commat[-51,])>5]
 nmds<-metaMDS(ComThin)
 data.scores <- as.data.frame(scores(nmds))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
 data.scores$site <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
-data.scores$grp <- Inv[match(data.scores$site, Inv$TEid), "Treatment"]  #  add the grp variable created earlier
+data.scores$grp <- Inv[match(data.scores$site, Inv$TEid), "TreatA"]  #  add the grp variable created earlier
 head(data.scores)  #look at the data
 
 species.scores <- as.data.frame(scores(nmds, "species"))  #Using the scores function from vegan to extract the species scores and convert to a data.frame
@@ -495,8 +466,8 @@ ggplot() +
         plot.background = element_blank())
 ggsave("./Figures/NmdsThin.png")
 
-head(DataEX)
-pts<-envfit(nmds,AllmodelD[,c(9:11,13:16)], na.rm=T)
+head(EncDF) #result of Model Script, has environmental varialbes in there
+pts<-envfit(nmds,EncDF[EncDF$TEid!="w09E02",c(7,8,14,15,27)], na.rm=F) #not working 
 pts.df<-as.data.frame(pts$vectors$arrows*sqrt(pts$vectors$r))
 pts.df$species<-rownames(pts.df)
 
@@ -522,27 +493,61 @@ ggplot() +
         plot.background = element_blank())
 ggsave("./Figures/nmdschar.png")
 
-EnclosureRaster$funORD<-funNMDS1[match(EnclosureRaster$enc, rownames(funNMDS1)),1]
-plot(EnclosureRaster["funORD"])
-text(cc[,1],cc[,2],zc)
-
-
 ##### Functional Diversity Analysis #####
-trait<-TaxaList[,-c(1:4,10,11)]
+invtrait<-read.csv("./FEn17_data/InvertTraitsTable_v1.txt", sep="\t")
+
+Invmisc<-Inv[Inv$Family!="misc",]
+oldtraits<-NULL
+for(j in 1:length(unique(Invmisc$Family))){
+  k<-unique(Invmisc$Family)[!is.na(unique(Invmisc$Family))]
+  idx<-k[j] #what family/order are we on
+  traits<-invtrait[invtrait$Family==idx & 
+                   !is.na(invtrait$Family==idx), ] 
+  oldtraits<-rbind(oldtraits,traits)
+}
+which(duplicated(oldtraits))#checking for duplicate rows within the trait matrix
+
+FeedTraits<-oldtraits[oldtraits$Feed_mode_prim!="" &
+                      !is.na(oldtraits$Feed_mode_prim==""),
+                      c("Family","Feed_mode_prim","Feed_mode_sec","Feed_mode_comments",
+                        "TraitRecord_ID")]
+library(tidyverse)
+library(dplyr)
+getmode<- function(v) {
+  uniqv<-unique(v)
+  uniqv[which.max(tabulate(match(v,uniqv)))]
+}
+
+FeedTraits %>% group_by(Family) %>% summarize(n=n(),
+                                              primFFG=getmode(Feed_mode_prim),
+                                              secFFG=getmode(Feed_mode_sec))
+write_excel_csv(FeedTraits, "feedingtraits.csv")
+
+
+for(j in 1:nrow(invtrait)){
+  if(!is.na(match(invtrait$Family[1:5], Inv$Family))==T){print(invtrait$Family[j])}}
+
+test<-invtrait[match(invtrait$Family, unique(Inv$Family)),]
+test2<-test[!is.na(test$Family),]
+nrow(test2)
+
+for(j in 1:nrow(invtrait)){if(match(invtrait$Family[j], Inv$Family)==T){print(invtrait$Family[j])}}
+
+trait<-TaxaList[,-c(1:4,26,27,28)]
 rownames(trait)<-TaxaList[,1]
 ordtrait<-trait[order(rownames(trait),decreasing=F),]
-trait1<-ordtrait[-c(6,11, 32),c(3,4)]
+trait1<-ordtrait[-33,-21]
 
-library(reshape2)
 AbMatrixT<-dcast(Counts, TEid + Treatment ~ Taxa, value.var = "Density.npm")
 AbMatrixT[is.na(AbMatrixT)]<-0
-Abundances<-AbMatrixT[,-c(1:3)]
+Abundances<-AbMatrixT[,-c(1:2)]
 rownames(Abundances)<-AbMatrixT[,1]
+AbundR<-Abundances[-c(19,49)]
 
-rownames(trait1)==colnames(Abundances) #need it to be true to run the function
+rownames(trait1)==colnames(AbundR) #need it to be true to run the function
 
 library(FD)
-ex <- dbFD(trait1,Abundances[-51,])
+ex <- dbFD(trait1,AbundR)
 
 FunciGraph<-data.frame(FDis=ex$FDis,
                        FRich=ex$FRic,

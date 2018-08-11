@@ -4,11 +4,11 @@ library(readxl)
 fishdata<-read_excel("./FEn17_data/videowithabiotics.xlsx")
 colnames(fishdata)[c(3,10)]<-c("GTreat","Log(probFish+1)")
 #adding columns that match other data
-fishdata[,11:12]<-Treat[match(fishdata$Unit, Treat$ï..Enclosure),c("Enclosure2","TreatA") ] #Treat found in Slurry Analysis script
+fishdata[,11:12]<-Treat[match(fishdata$Unit, Treat$Enclosure),c("Enc2","TreatA") ] #Treat found in Slurry Analysis script
 fishdata$Week<-rep(NA, nrow(fishdata))
 for(i in 1:nrow(fishdata)){
   if(fishdata$Month[i]=="Oct"){fishdata$Week[i]<-"w12"}else{fishdata$Week[i]<-"w09"}}
-fishdata$TEid<-paste(fishdata$Week,fishdata$Enclosure2, sep="")
+fishdata$TEid<-paste(fishdata$Week,fishdata$Enc2, sep="")
 
 #adding basal resources (chlA and AFDM)
 head(basalres) #result of Slurry Analysis script
@@ -33,7 +33,7 @@ write_csv(AllDATA, "./Results/modeldata.csv")
 ChlAfil2
 #### cleaned up in excel - added filter estimates, removed superflous columns
 
-EncDF<-read_excel("./Results/EncModelTable.xlsx", 
+EncDF<-read_excel("./Results/EncModelTableBEST.xlsx", 
                   col_types=c("text","text","text", "skip","text","text","text","numeric",
                               "numeric","numeric","numeric","numeric","numeric","text","numeric",
                               "numeric","numeric","numeric","numeric","numeric","numeric","numeric",
@@ -118,14 +118,3 @@ bug<-ggplot(trophic[trophic$variable=="BMDensity.gpm2",],
   ylab("Macroinv. Biomass g/m2")+xlab("")+fungraph+theme(legend.position="none")
 
 grid.arrange(depthG,afdm,bug,fish, nrow=1)
-
-####Note, since merge removes rows that lack data in one of the data sets
-#this is a conservative data set MEANING if data didn't exist for any of these variables
-#the row/observation was removed
-#to include all rows from one data set, add all=TRUE in the merge commands
-
-#exporting to csv for Garrett
-write.csv(AllmodelD, "preliminarydata.csv")
-write.csv(fishbas, "fish&basal.csv")
-
-ggplot(test[test$ChlA.mg.m2>0,], aes(x=Treatment, y=ChlA.mg.m2))+geom_boxplot()+facet_wrap(~Week)
