@@ -518,10 +518,13 @@ getmode<- function(v) {
   uniqv[which.max(tabulate(match(v,uniqv)))]
 }
 
-FeedTraits %>% group_by(Family) %>% summarize(n=n(),
+FFGtrait<-FeedTraits %>% group_by(Family) %>% summarize(n=n(),
                                               primFFG=getmode(Feed_mode_prim),
                                               secFFG=getmode(Feed_mode_sec))
-write_excel_csv(FeedTraits, "feedingtraits.csv")
+### replace Others with consensus
+### replace factors with Leroy Poff numbers
+### look at Schnider for new method
+### explicitly looking at differences between scale. 
 
 
 for(j in 1:nrow(invtrait)){

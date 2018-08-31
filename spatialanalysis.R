@@ -105,12 +105,11 @@ fmt_dcimals <- function(decimals=0){
 
 (SiteDepth<-ggplot(pressuredata[pressuredata$Height>=.58,], aes(x=GoodDate, y=Height))+
   geom_line()+
-  geom_vline(xintercept = ymd_hms("2017-08-07 12:00:00"), color="red",alpha=.3,cex=5)+
   geom_vline(xintercept = ymd_hms("2017-09-18 12:00:00"), color="red",alpha=.3,cex=5)+
   geom_vline(xintercept = ymd_hms("2017-10-07 12:00:00"), color="red",alpha=.3,cex=5)+
   ylab("Water Depth (m)")+xlab("Date")+
   scale_x_datetime(date_breaks="2 weeks", date_labels="%b %d")+
-  scale_y_continuous(labels=fmt_dcimals(2)))
+  scale_y_continuous(labels=fmt_dcimals(2)))+theme_bw()
 ggsave("SiteDepth.tiff",SiteDepth,width=7, height=4, dpi=300)
 
 ##### MUSSEL BIOMASS ESTIMATE ####
