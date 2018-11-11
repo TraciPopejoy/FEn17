@@ -1,9 +1,5 @@
 #libraries
-library(reshape2)
-library(plyr)
-library(dplyr)
-library(ggplot2)
-library(xlsx)
+library(reshape2);library(plyr);library(dplyr);library(ggplot2);library(xlsx)
 library(vegan)
 
 #############     Invert Data in Field Surber Samples    ##############
@@ -31,10 +27,22 @@ Inv$Family<-as.character(TaxaList$Family[match(Inv$Taxa,TaxaList$Taxa)])
 Inv$Order<-as.character(TaxaList$Order[match(Inv$Taxa,TaxaList$Taxa)])
 Inv$Length<-Inv$Length.cm*10
 
-ggplot(Inv[Inv$Order=="Odonata",], aes(x=Length.cm,))+geom_histogram()
+ggplot(Inv[Inv$Order=="Odonata",], aes(x=Length.cm))+geom_histogram()
 #removing all odonates >1.4cm
-remOD<-Inv[(Inv$Order=="Odonata" & Inv$Length.cm>1.4),]
-Inv<-Inv[!(Inv$Order=="Odonata" & Inv$Length.cm>1.4),]
+remOD<-Inv[(Inv$Order=="Odonata" & Inv$Length.cm>1),]
+FEn17ODcount<-remOD %>% group_by(Enc, Week) %>% 
+  mutate(biomass=case_when(Taxa=="Od.Dragonflies"~0.0082*((Length.cm*10)^2.813),
+                           Taxa=="Od.Damselflies"~0.0086*((Length.cm*10)^2.666))) %>% #Smock 1980
+  summarize(totalODbiomass.mg=sum(biomass),
+            avg.length.cm=mean(Length.cm),
+            nLargeOd=n()) %>% 
+  left_join(Treat, by=c("Enc"="Enc2")) %>% select(-TreatF)
+ggplot(remOD, aes(x=TreatA, y=Length.cm, color=Week))+
+  geom_point(size=2, position=position_dodge(width=.6))+
+  stat_summary(color="black")+facet_wrap(~Type, scales="free")+
+  theme_bw()
+remOD %>% group_by(TreatA, Week) %>% tally()
+#Inv<-Inv[!(Inv$Order=="Odonata" & Inv$Length.cm>1.4),]
 
 #how many individuals of each taxa in each enclosure/time; long format
 Counts<-ddply(Inv, .variables = c("TEid","Taxa"), .fun=function(x) {
@@ -57,7 +65,7 @@ Counts$Density.npb<-Counts$n/(SlurryData[match(Counts$TEid, SlurryData$TEid),5])
 InvA<-Inv[!Inv$Order=="misc",]
 InvB<-na.omit(InvA)
 #apply appropriate biomass regressions to each length
-InvBM<-ddply(.data=InvB, .var=c("Taxa"), .fun=function(x) {
+InvBMsize<-ddply(.data=InvB, .var=c("Taxa"), .fun=function(x) {
   idx<-x[1,c("Family","Order")] #what family/order are we on
   if(idx$Family=="misc"){ #if not ID'd to family, use order level regressions
     plcoeffs<-BiomassReg[BiomassReg$Order == idx$Order &
@@ -69,8 +77,8 @@ InvBM<-ddply(.data=InvB, .var=c("Taxa"), .fun=function(x) {
   }
   #which regressions were actually built for insects this size
   ldply(lapply(1:dim(x)[[1]],FUN=function(i) { 
-    idx2<-c(x$Length[i]>=plcoeffs[,19] & x$Length[i]<=plcoeffs[,20]) 
-    idx2[is.na(idx2)]<-T #if no size range listed, use the regression anyways
+    #idx2<-c(x$Length[i]>=plcoeffs[,19] & x$Length[i]<=plcoeffs[,20]) 
+    idx2<-T #if no size range listed, use the regression anyways
     d1<-plcoeffs[idx2,]
     indmassest<-d1$a*(x$Length[i]^d1$b) #power law to determine biomass
     data.frame(
@@ -319,7 +327,7 @@ colnames(InvSum)[2]<-"richness"
 InvSum[,7:11]<-Inv[match(InvSum$TEid, Inv$TEid), c("Enc","Week","TreatA","Type","Spp")]
 InvSum$basketn<-SlurryData[match(InvSum$TEid, SlurryData$TEid),5]
 InvSum$Density.npm<-InvSum$TotalN/(InvSum$basketn*.03315)
-InvSum$Enclosure<-Treat[match(InvSum$Enc, Treat$Enclosure2),1]
+InvSum$Enclosure<-Treat[match(InvSum$Enc, Treat$Enc2),1]
 
 ####testing CLEANME ####
 test<-InvGraph %>% group_by(TEid)%>%filter(T.TropP==2) %>%
@@ -354,7 +362,6 @@ cld(leastm, alpha=.05, Letters=letters)
 
 
 write.csv(InvSum, "FEn17week12insects.csv")
-
 
 RAcommat<-commat/rowSums(commat)
 RAcommat$sites<-rownames(RAcommat)

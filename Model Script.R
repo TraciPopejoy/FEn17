@@ -1,3 +1,6 @@
+head(modeldata)
+updatedsize<-full_join(modeldata, InvSum)
+
 #script to bring models in, run last
 library(readxl)
 

@@ -8,9 +8,9 @@ SlurryData[SlurryData$WeekBad=="4",8]<-"w04"
 SlurryData[SlurryData$WeekBad=="12",8]<-"w12"
 colnames(SlurryData)[8]<-"Week"
 #bring in enclosure and treatment data
-Treat<-read_excel("./FEn17_data/FEn17OKTreatments.xlsx")
+Treat<-read.xlsx("./FEn17_data/FEn17OKTreatments.xlsx", sheetIndex = 1)
 
-SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$ï..Enclosure),"Enclosure2"]
+SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$Enclosure),"Enc2"]
 SlurryData$TEid<-paste(SlurryData$Week,SlurryData$Enc2, sep="")
 #Some filters didn't have bucket volumes associated with them
 #5L is written next to them and is the mean bucket volume (considering sig dig)
