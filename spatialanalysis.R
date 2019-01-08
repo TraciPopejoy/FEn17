@@ -1,7 +1,7 @@
 #libraries
 library(sp)
 library(xlsx)
-library(plyr)
+library(tidyverse)
 library(RColorBrewer)
 
 EnclosureRaster = data.frame(enc=
@@ -118,14 +118,14 @@ mreg<-read.xlsx("./FEn17_data/LENGTH-MASS_CLA_CCV_20161208-reg coefficients.xlsx
 head(mreg)
 mreg$Spp<-c("boot","all","ACT","AMB","OREF","POCC","QVER","FFLA",NA,NA,NA)
 MusselData$BiomassE<-mreg[match(MusselData$Genus, mreg$Spp),"a"]*(MusselData$L^mreg[match(MusselData$Genus, mreg$Spp),"b"]) 
-ACTbm<-mean(MusselData[MusselData$Genus=="AMB","BiomassE"], na.rm=T)
 #replacing not available mussel data with average
-MusselData[MusselData$Genus=="ACT" & is.na(MusselData$BiomassE),"BiomassE"]<-mean(MusselData[MusselData$Genus=="ACT","BiomassE"], na.rm=T)
-MusselData[MusselData$Genus=="AMB" & is.na(MusselData$BiomassE),"BiomassE"]<-mean(MusselData[MusselData$Genus=="AMB","BiomassE"], na.rm=T)
+MusselData[MusselData$Genus=="ACT" & is.na(MusselData$BiomassE),"BiomassE"]<-mean(as.matrix(MusselData[MusselData$Genus=="ACT","BiomassE"]), na.rm=T)
+MusselData[MusselData$Genus=="AMB" & is.na(MusselData$BiomassE),"BiomassE"]<-mean(as.matrix(MusselData[MusselData$Genus=="AMB","BiomassE"]), na.rm=T)
 
-MusBiomass<-MusselData %>% group_by(Enc2,Genus, Treatment) %>% 
-  summarize(sumBM=sum(BiomassE), meanBM=mean(BiomassE), sdBM=sd(BiomassE))
-MBM<-MusselData %>% group_by(Enc2, Treatment) %>% 
+MusBiomass<-MusselData %>% left_join(Treat) %>%group_by(Enc2,Genus, Treatment) %>% 
+  summarize(sumBM=sum(BiomassE), meanBM=mean(BiomassE), sdBM=sd(BiomassE)) %>% 
+  spread(Genus, sumBM)%>% select(Enc2, ACT, AMB) %>%summarise_all(funs(.[which(!is.na(.))]))
+MBM<-MusselData %>% left_join(Treat) %>% group_by(Enc2, Treatment) %>% 
   summarize(sumBM=sum(BiomassE), meanBM=mean(BiomassE), sdBM=sd(BiomassE),
             ACTbm=mean(BiomassE[Genus=="ACT"]), 
             AMBbm=mean(BiomassE[Genus=="AMB"]))

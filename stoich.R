@@ -1,71 +1,69 @@
-library(xlsx)
-stoich<-read.csv("./FEn17_data/171204_PratherPopejoy_processed_data.csv", stringsAsFactors = F)
-stoich$perC<-stoich[,"C_mg"]/stoich[,"Amount_mg"]*100
-stoich$perN<-stoich[,"N_mg"]/stoich[,"Amount_mg"]*100
-stoich$CtN<-stoich[,"perC"]/stoich[,"perN"]
-
-stoichgraph<-stoich[stoich$Enc!="",]
-library(reshape2)
-stoichgraph2<-melt(stoichgraph[,-c(1:9)])
-library(ggplot2)
-ggplot(stoichgraph2, aes(x=Treatment, y=value))+geom_boxplot()+facet_wrap(~variable, scales="free")
-
+library(readr); library(tidyverse)
+#bring in N & C data, processed through Allen's lab late 2017
+stoich<-read.csv("./FEn17_data/171204_PratherPopejoy_processed_data.csv",
+                 stringsAsFactors = F) %>% 
+  mutate(perC=C_mg/Amount_mg*100,
+         perN=N_mg/Amount_mg*100,
+         C_mg_mgDW=C_mg/Amount_mg,
+         N_mg_mgDW=N_mg/Amount_mg,
+         moleC=C_mg_mgDW/12,
+         moleN=N_mg_mgDW/14,
+         moleCtN=moleC/moleN)
+#bring in phosphorus data, collected by TPD early 2018
 phos<-read.csv("./FEn17_data/PeriPhosphorus.csv", stringsAsFactors = F)
 PStand<-phos[1:24,]
-PstandC<-lm(Abs885~mgPpL, PStand)
-summary(PstandC)
-ggplot(PStand, aes(x=mgPpL, y=Abs885))+geom_point()+
+PstandC<-lm(Abs885~mgPpL, PStand[PStand$mgPpL!=.2,]) #.2 are outliers
+summary(PstandC) #need R2 to be >0.99
+#plot of standard curve
+ggplot(PStand[PStand$mgPpL!=.2,], aes(x=mgPpL, y=Abs885))+geom_point()+
   geom_smooth(method='lm',formula=y~x)
-
-Pb=-0.17671
-Pa=0.62089
-phos$mgPpLCAL<-((phos$Abs885-Pb)/Pa)*phos$Dilution
-phos$DM<-(phos$mgPpLCAL/phos$DryWeight)*.012
-phos$perP<-phos$DM*100
+#save the coefficients for calculation of P in samples
+Pb=coefficients(PstandC)[1] 
+Pa=coefficients(PstandC)[2]
+phos <- phos %>% mutate(mgPpLCAL=((phos$Abs885-Pb)/Pa)*Dilution, #mg P per Liter
+                        P_mg_mgDW=(mgPpLCAL/DryWeight)*.012, #mg P per mg DW
+                        moleP=P_mg_mgDW/31, #moles of P per DW
+                        perP=P_mg_mgDW*100) #percentage of P per DW
 colnames(phos)[5]<-"DryWeight.mg"
 phos$Treatment<-Treat[match(phos$Enc,Treat$Enclosure2),3]
+#what do my non-periphyton samples look like (Reach scale)
+phos %>% filter(Type.1 =="invert")
+#join N, C, and P data and calculate molar ratios per DW
+OKStoich<-merge(stoich[stoich$Enc!="",-c(1,2)],phos[,-c(6:8)], by="Enc")%>%
+  mutate(CtP=moleC/moleP,
+         NtP=moleN/moleP)
 
-ggplot()+geom_point(data=PStand, aes(x=mgPpL, y=Abs885), size=2.5)+
-  geom_smooth(data=PStand, aes(x=mgPpL, y=Abs885),method='lm',formula=y~x)+
-  geom_point(data=phos[!is.na(phos$Treatment),], size=4, alpha=.3,
-             aes(x=mgPpLCAL, y=Abs885, color=Treatment))+
-  theme_bw()
+biostoich<-OKStoich %>% left_join(MusBiomass, by=c("Enc"="Enc2")) %>%
+  mutate(ACTC=replace_na(ACT,0),
+         AMBC=replace_na(AMB,0)) 
+names(biostoich)
 
-ggplot()+geom_boxplot(data=phos, aes(x=Treatment, y=Abs885))+
-  geom_boxplot(data=PStand, aes(x=Type, y=Abs885))
-
-OKStoich<-merge(stoich[stoich$Enc!="",-c(1,2)],phos[,-c(6:8)], by="Enc")
-OKStoich$CtP<-OKStoich[,"perC"]/OKStoich[,"perP"]
-OKStoich$NtP<-OKStoich[,"perN"]/OKStoich[,"perP"]
-
-ggplot(OKStoich, aes(x=Treatment, y=NtP))+geom_boxplot()
-
-OKStoichPer<-OKStoich[,c("Enc","Treatment","perC","perN","perP")]
-mperNUT<-melt(OKStoichPer)
-
-ggplot(data = mperNUT, aes(x = Enc, y = value, fill = variable)) + 
-  geom_bar(stat="identity") + coord_flip()+
-  theme(axis.text.x = element_text(size=9,color="black"),
-        axis.title.y=element_text(size=20),
-        plot.background = element_blank(),
-        panel.border=element_blank(),
-        panel.grid.major= element_line(colour=NA), 
-        panel.grid.minor=element_line(colour=NA),
-        title=element_text(size=20),
-        panel.background = element_rect(fill = "white"),
-        axis.line.x=element_line(colour="black"),
-        axis.line.y=element_line(colour="black"))+
-  facet_grid(Treatment~., space="free", scales="free")
-ggplot(mperNUT, aes(x=variable, y=value))+geom_boxplot()+
-  facet_wrap(~Treatment, scales="free")
-
-
-
-testing<-aov(NtP~Treatment, data=OKStoich)
-summary(testing)
-plot(testing)
-TukeyHSD(testing)
+#### stats ####
+# Nitrogen to Phosphorus
+ggplot(biostoich, aes(y=NtP))+geom_point(aes(x=ACTC), color="blue")+
+  geom_point(aes(x=AMBC), color="red")
+NtpAnova1<-aov(NtP~Treatment.x, data=biostoich)
+summary(NtpAnova)
+plot(NtpAnova)
+TukeyHSD(NtpAnova)
 library(lsmeans)
-leastm<-lsmeans(testing, "Treatment",adjust="tukey")
-cld(leastm, alpha=.05, Letters=letters)
-
+leastmNTP<-lsmeans(NtpAnova, "Treatment.x",adjust="tukey")
+cld(leastmNTP, alpha=.05, Letters=letters)
+# Carbon to Nitrogen
+ggplot(biostoich, aes(y=moleCtN))+geom_point(aes(x=ACTC), color="blue")+
+  geom_point(aes(x=AMBC), color="red")
+CtnAnova<-lm(moleCtN~AMBC, data=biostoich)
+summary(CtnAnova) # marginal
+plot(CtnAnova)
+TukeyHSD(CtnAnova)
+leastmCTN<-lsmeans(CtnAnova, "Treatment.x",adjust="tukey")
+cld(leastmCTN, alpha=.05, Letters=letters)
+# Carbon to Phosphorus
+ggplot(biostoich, aes(y=CtP))+geom_point(aes(x=ACTC), color="blue")+
+  geom_point(aes(x=AMBC), color="red")
+CtpAnova<-aov(CtP~Treatment.x, data=biostoich)
+summary(CtpAnova)
+plot(CtpAnova)
+TukeyHSD(CtpAnova)
+leastmCTP<-lsmeans(CtpAnova, "Treatment.x",adjust="tukey")
+cld(leastmCTP, alpha=.05, Letters=letters)
