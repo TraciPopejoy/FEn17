@@ -1,19 +1,19 @@
 #libraries
-library(reshape2);library(plyr);library(dplyr);library(ggplot2);library(xlsx)
+library(reshape2);library(plyr);library(dplyr);library(ggplot2);library(readr)
 library(vegan)
 
 #############     Invert Data in Field Surber Samples    ##############
 #bring in enclosure and treatment data, trait/taxa list, and length weight regressions
-Treat<-read.xlsx("./FEn17_data/FEn17OKTreatments.xlsx", sheetIndex = 1) 
-TaxaList<-read.xlsx("./FEn17_data/TaxaTable.xlsx", sheetIndex = 1)
-BiomassReg<-read.xlsx("./FEn17_data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1)
+Treat<-read_excel("./data/Treatment.xlsx", sheet = "Treatments")
+TaxaList<-read_excel("data/Macroinvertebrates.xlsx" , sheet="TaxaTable")
+BiomassReg<-read_excel("./data/Macroinv Power Law Coeffs TBP.xlsx", sheetIndex = 1)
 #THIS IS THE INSECT DATA
-FEn17Inv12<-read.csv("./FEn17_data/FEn17InvMeas.csv", stringsAsFactors = F)
+FEn17Inv12<-read_excel("data/Macroinvertebrates.xlsx", sheet="Lengths")
 FEn17Inv12<-FEn17Inv12[FEn17Inv12$Label!="rulerxocc.tif",-c(3:5)]
 FEn17Inv12$TEid<-substring(FEn17Inv12$Label, 6,11)
 FEn17Inv12$Enc<-substring(FEn17Inv12$Label,9,11)
 FEn17Inv12$Week<-substring(FEn17Inv12$Label,6,8)
-FEn17Inv09<-read.csv("./FEn17_data/FEn17w09.csv", stringsAsFactors = F)
+FEn17Inv09<-read_excel("data/Macroinvertebrates.xlsx", sheet="Lengthsw09")
 FEn17Inv09<-FEn17Inv09[,-c(3:5,9)]
 FEn17Inv09$Week<-"w09"
 FEn17Inv09$TEid<-paste(FEn17Inv09$Week, FEn17Inv09$Enc, sep="")
@@ -118,7 +118,7 @@ InvGraph<-merge(InvTotalBM[,-c(4,5)],Counts, by=c("TEid","Taxa","Treatment","Enc
 #get traits into the graph
 InvGraph<-merge(InvGraph, TaxaList[,c(1,2,5:25)], by=c("Taxa", "Family"))
 InvGraph[,36:37]<-Treat[match(InvGraph$Enc, Treat$Enc2), c("Type","Spp")]
-TraitDef<-read.xlsx("./FEn17_data/TaxaTable.xlsx",sheetIndex = 2)
+TraitDef<-read_excel("data/Macroinvertebrates.xlsx" , sheet="FunctionKey")
 trophic<-TraitDef[TraitDef$Trait=="T.TropP",]
 InvGraph$FFGp<-trophic[match(InvGraph$T.TropP, trophic$Num),"T.state"]
 
@@ -501,7 +501,7 @@ ggplot() +
 ggsave("./Figures/nmdschar.png")
 
 ##### Functional Diversity Analysis #####
-invtrait<-read.csv("./FEn17_data/InvertTraitsTable_v1.txt", sep="\t")
+invtrait<-read.csv("./FEn17_data/InvertTraitsTable_v1.txt", sep="\t") #from USGS functional trait database
 
 Invmisc<-Inv[Inv$Family!="misc",]
 oldtraits<-NULL

@@ -1,8 +1,5 @@
 #libraries
-library(sp)
-library(xlsx)
-library(tidyverse)
-library(RColorBrewer)
+library(sp); library(xlsx); library(tidyverse); library(RColorBrewer)
 
 EnclosureRaster = data.frame(enc=
                       c("A1","A2","A3","A4","A5","A6","A7","A8","A9","A10",
@@ -27,7 +24,7 @@ zc[is.na(zc)]="NA"
 text(cc[,1],cc[,2],zc)
 
 #### Spatial data ####
-EncDVw09<-read.csv("./FEn17_data/EncPhysDisFEn17OK.csv") #table has depth and velocity for each enclosure
+EncDVw09<-read_excel("./data/Treatment.xlsx", sheet='Dischargew9') #table has depth and velocity for each enclosure
 EncDVw09$Enc2<-Treat[match(EncDVw09$ï..Enclosure, Treat$ï..Enclosure), "Enclosure2"]
 EnclosureRaster$depthw9<-EncDVw09[match(EnclosureRaster$enc, EncDVw09$ï..Enclosure),2]
 EnclosureRaster$velocityw9<-EncDVw09[match(EnclosureRaster$enc, EncDVw09$ï..Enclosure),3]
@@ -50,8 +47,7 @@ image(EnclosureRaster["Chl12"])
 text(cc[,1],cc[,2],zc)
 
 ### Velocity Transects ###
-
-Rvel<-read_excel("./FEn17_data/FieldEncDataSum2017V2.xlsx", sheet = 1)
+Rvel<-read_excel("data/Treatment.xlsx", sheet="DischargeT")
 Rvel %>% group_by(Transect) %>% summarize(meandepth=mean(depth.m, na.rm=T),
                                           depthsd=sd(depth.m, na.rm=T),
                                           velmean=mean(`velocity.m/s`, na.rm=T),
@@ -60,6 +56,7 @@ Rvel %>% group_by(Transect) %>% summarize(meandepth=mean(depth.m, na.rm=T),
 
 ####Water Depth Data####
 library(tidyverse)
+pressuredata<-read_excel("data/Treatment.xlsx", sheet="HoboWaterDepth")
 PD1<-read.csv("./FEN17_data/10699194.csv", header=F, stringsAsFactors = F)
 PD2<-read.csv("./FEN17_data/beg10699194_5.csv", header=F, stringsAsFactors = F)
 
@@ -68,19 +65,15 @@ names(PDa)<-c("number","DateTimeGMT","AbsP.psi","TempF")
 PDb<-PD2[-c(1:2),]
 names(PDb)<-c("number","DateTimeGMT","AbsP.psi","TempF")
 
-pressuredata<-rbind(PDb[,1:4],PDa[,1:4])
-pressuredata<-pressuredata[pressuredata$TempF!="",]
+pressuredata<-pressuredata[,1:4]
+pressuredata<-pressuredata[!is.na(pressuredata$TempF),]
 pressuredata<-pressuredata[-c(10554:10557),]
-
-library(lubridate)
-pressuredata$GoodDate<-mdy_hms(pressuredata[,2], tz="GMT")
-pressuredata$Date<-date(pressuredata$GoodDate)
+pressuredata$Date<-date(pressuredata$DateTimeGMT)
 pressuredata$AbsP.psi<-as.numeric(pressuredata$AbsP.psi)
 pressuredata$AbsP.Nm2<-pressuredata$AbsP.psi*6894.744825
-pressuredata$TempF<-as.numeric(pressuredata$TempF)
 
 head(pressuredata)
-ggplot(pressuredata, aes(x=GoodDate, y=AbsP.psi))+geom_point()
+ggplot(pressuredata, aes(x=DateTimeGMT, y=AbsP.psi))+geom_point()
 
 #pressure = density * gravity * height  
 #pressure / (9.81m/s*density)=height
@@ -88,11 +81,11 @@ ggplot(pressuredata, aes(x=GoodDate, y=AbsP.psi))+geom_point()
 #on 7/13/2017, sediment to midpoint=18cm, midpoint to top=68cm total height is 86cm
 #7/20/2017	13.7	42.8	56.5
 #10/8/2017 water depth was 48.5cm
-Jul13<-mean(pressuredata[pressuredata$Date=="2017-07-13","AbsP.Nm2"], na.rm=T)
+Jul13<-pressuredata %>% filter(Date=="2017-07-13") %>% pull(AbsP.Nm2) %>% mean(na.rm=T)
 (WdensityJ13<-Jul13/(9.81*.86))
-(Jul20<-mean(pressuredata[pressuredata$Date=="2017-07-20","AbsP.Nm2"], na.rm=T))
+(Jul20<-pressuredata %>% filter(Date=="2017-07-20") %>% pull(AbsP.Nm2) %>% mean(na.rm=T))
 (WdensityJ20<-Jul20/(9.81*.565))
-Oct8<-mean(pressuredata[pressuredata$Date=="2017-10-07","AbsP.Nm2"], na.rm=T)
+Oct8<-pressuredata %>% filter(Date=="2017-10-07") %>% pull(AbsP.Nm2) %>% mean(na.rm=T)
 (WdensityO<-Oct8/(9.81*.485))
 (WDensity<-mean(WdensityJ13, WdensityJ20, WdensityO))
 
@@ -114,7 +107,7 @@ ggsave("SiteDepth.tiff",SiteDepth,width=7, height=4, dpi=300)
 
 ##### MUSSEL BIOMASS ESTIMATE ####
 head(MusselData)
-mreg<-read.xlsx("./FEn17_data/LENGTH-MASS_CLA_CCV_20161208-reg coefficients.xlsx", sheetIndex = 2)
+mreg<-read_excel("./FEn17_data/LENGTH-MASS_CLA_CCV_20161208-reg coefficients.xlsx", sheet= 2)
 head(mreg)
 mreg$Spp<-c("boot","all","ACT","AMB","OREF","POCC","QVER","FFLA",NA,NA,NA)
 MusselData$BiomassE<-mreg[match(MusselData$Genus, mreg$Spp),"a"]*(MusselData$L^mreg[match(MusselData$Genus, mreg$Spp),"b"]) 
@@ -135,7 +128,7 @@ names(MBM)[1]<-"Enc"
 ggsave("./Figures/biomass.png")
 
 #### Structure data ####
-MusselData<-read.csv("./FEn17_data/MusselBMExpFEn17OK.csv")
+MusselData<-read_excel("data/Mussel.xlsx", sheet="Mussel Size")
 colnames(MusselData)[1]<-"Enclosure"
 MusselData$Enc2<-Treat[match(MusselData$Enclosure,Treat$ï..Enclosure),2]
 expos<-ddply(MusselData, .variables =c("Enclosure"), .fun=function(x) mean(na.omit(x$Exposure)))

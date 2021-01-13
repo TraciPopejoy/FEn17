@@ -1,6 +1,7 @@
+library(readxl)
 ##### Basket Slurry Analysis #####
 #bring in volume data; bucket volume, subsample, filter, enclosure
-SlurryData<-read.csv("./FEn17_data/SubSamFEn17OK.csv", stringsAsFactors = F) 
+SlurryData<-read_excel("./data/PrimaryProd.xlsx", sheet = "SlurryInfo") 
 SlurryData$BucketVol<-as.numeric(paste(SlurryData$BucketVol)) #tell volume to stop being a factor/text
 colnames(SlurryData)[6]<-"WeekBad"
 SlurryData[SlurryData$WeekBad=="8",8]<-"w09"
@@ -8,7 +9,7 @@ SlurryData[SlurryData$WeekBad=="4",8]<-"w04"
 SlurryData[SlurryData$WeekBad=="12",8]<-"w12"
 colnames(SlurryData)[8]<-"Week"
 #bring in enclosure and treatment data
-Treat<-read.xlsx("./FEn17_data/FEn17OKTreatments.xlsx", sheetIndex = 1)
+Treat<-read_excel("./data/Treatment.xlsx", sheet = "Treatments")
 
 SlurryData$Enc2<-Treat[match(SlurryData$Enclosure, Treat$Enclosure),"Enc2"]
 SlurryData$TEid<-paste(SlurryData$Week,SlurryData$Enc2, sep="")
@@ -21,12 +22,11 @@ SlurryData[is.na(SlurryData$Basket.),"Basket."]<-3
 
 
 ##### Ash Free Dry Mass Data #####
-AFDMraw<-read.csv("./FEn17_data/AFDMFEn17OK.csv", stringsAsFactors = F) #datasheet with dried and burned results
-FilterPre<-read.csv("./FEn17_data/FiltPreWFen17OK.csv") #filter preweights
-colnames(FilterPre)[1]<-"Filter."
+AFDMraw<-read_excel("./data/PrimaryProd.xlsx", sheet = "AFDM") #datasheet with dried and burned results
+FilterPre<-read_excel("./data/PrimaryProd.xlsx", sheet = "FilterPreweights") #filter preweights
 
-AFDM2<-merge.data.frame(AFDMraw, FilterPre, by="Filter.")
-AFDM<-merge.data.frame(AFDM2, SlurryData, by="Filter.")
+AFDM2<-merge.data.frame(AFDMraw, FilterPre, by="Filter#")
+AFDM<-merge.data.frame(AFDM2, SlurryData, by="Filter#")
 AFDM$Tin.filter.combusted<-as.numeric(paste(AFDM$Tin.filter.combusted))
 AFDM$BucketVol<-as.numeric(paste(AFDM$BucketVol))
 
@@ -56,7 +56,7 @@ ggplot(AFDM, aes(x=Treatment, y=AFDMdensity))+geom_boxplot()+
   
 #### Chlorophyll ####
 #this is from the algal tiles generally
-ChlAraw<-read.csv("./FEn17_data/ChlDataFEn17OK.csv", stringsAsFactors = F)#bring in raw chlorophyll data
+ChlAraw<-read_excel("./data/PrimaryProd.xlsx", sheet = 'Chl') #bring in raw chlorophyll data
 colnames(ChlAraw)[2]<-"WeekBad"
 ChlAraw[ChlAraw$WeekBad=="9",12]<-"w09"
 ChlAraw[ChlAraw$WeekBad=="4",12]<-"w04"
@@ -130,7 +130,7 @@ ChlAShell[ChlAShell$Order=="D86",15]<-'ACT'
 ChlAShell$FilterVol<-SlurryData[match(ChlAShell$Enclosure., SlurryData$Filter.), 3]
 ChlAShell$BucketVol<-SlurryData[match(ChlAShell$Enclosure., SlurryData$Filter.), 2]
 
-MusselData<-read.csv("./FEn17_data/MusselBMExpFEn17OK.csv")
+MusselData<-read_excel("./data/Mussel.xlsx", sheet="MusselSize")
 MusselData$ShellArea<-(MusselData$L*MusselData$H*2)*0.01
 shellareaag<-ddply(MusselData, .variables = c('Genus','Unit'), .fun=function(x) sum(x$ShellArea,na.rm=T))
 shellareaag$ty<-paste(shellareaag$Unit, shellareaag$Genus, sep="")
@@ -143,10 +143,3 @@ ChlAShell$ChlAdensity<-26.7*((ChlAShell$X664nm-ChlAShell$fir750nm)-(ChlAShell$X6
 library(ggplot2)
 ggplot(ChlAShell, aes(x=Spp, y=ChlAdensity, group=Enc2))+
   geom_line()+facet_wrap(~Treatment)+theme_bw()
-
-
-
-install.packages('profileR')
-library('profileR')
-
-
