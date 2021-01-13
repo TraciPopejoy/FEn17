@@ -14,14 +14,17 @@ Script that creates a raster that shows an approximation of the relative positio
 ### Inverts.R
 Takes raw data and produces counts, sizes, and biomass densities. Need to use densities because sampling was not consistent (basket recovery was not perfect)
 
+
 ### Table Script.R
 Brings together all the information for a covariate table for the manuscript.
 
-###NDS_analysis.R
+### NDS_analysis.R
 Based on code by Dr. Thomas Parr, used to analyze the nutrient diffusing substrata placed within the river during our experiment.
 
 ### Stoich.R
 Script to evaluate potential stoichiometry differences in the periphyton samples on tiles in each enclosure. 
+
+=======
 
 ## Products from this project
 Hopper, G. W., DuBose, T. P., Gido, K. B., & Vaughn, C. C. (2019). Freshwater mussels alter fish distributions through habitat modifications at fine spatial scales. Freshwater Science, 38(4), 702-712.
