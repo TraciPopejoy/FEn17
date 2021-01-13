@@ -17,7 +17,7 @@ Takes raw data and produces counts, sizes, and biomass densities. Need to use de
 ### Table Script.R
 Brings together all the information for a covariate table for the manuscript.
 
-### NDS_analysis.R
+###NDS_analysis.R
 Based on code by Dr. Thomas Parr, used to analyze the nutrient diffusing substrata placed within the river during our experiment.
 
 ### Stoich.R
